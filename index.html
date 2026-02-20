@@ -492,6 +492,62 @@
     text-transform: uppercase;
   }
   .badge-admin { background: rgba(247,37,133,0.15); color: var(--accent3); border: 1px solid rgba(247,37,133,0.3); }
+
+  /* RULES PAGE */
+  .rules-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 2rem;
+  }
+
+  .rules-section {
+    margin-bottom: 2rem;
+  }
+  .rules-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .rules-section h3 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--accent2);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .rules-section ul {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .rules-section li {
+    padding: 0.75rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text);
+    line-height: 1.6;
+    border-bottom: 1px solid var(--border);
+  }
+  .rules-section li:last-child {
+    border-bottom: none;
+  }
+
+  .rules-section li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .rules-section p {
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+  }
 </style>
 </head>
 <body>
@@ -501,6 +557,7 @@
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="switchPage('judge')">Judge</button>
       <button class="nav-tab" onclick="switchPage('leaderboard')">Leaderboard</button>
+      <button class="nav-tab" onclick="switchPage('rules')">Rules</button>
       <button class="nav-tab" onclick="switchPage('admin')">Admin <span class="badge badge-admin">●</span></button>
     </div>
   </nav>
@@ -541,6 +598,79 @@
   <div id="page-leaderboard" class="page">
     <div class="section-title">// Live Leaderboard</div>
     <div class="leaderboard" id="leaderboard-list"></div>
+  </div>
+
+  <!-- RULES PAGE -->
+  <div id="page-rules" class="page">
+    <div class="section-title">// Hackathon Rules</div>
+    <div class="rules-content">
+      <div class="rules-section">
+        <h3>📋 General Guidelines</h3>
+        <ul>
+          <li>All participants must be registered and present at the event venue</li>
+          <li>Teams must consist of 2-5 members</li>
+          <li>Projects must be built during the hackathon timeframe</li>
+          <li>All code must be original work created during the event</li>
+          <li>Use of pre-existing code libraries and frameworks is permitted</li>
+        </ul>
+      </div>
+
+      <div class="rules-section">
+        <h3>⏰ Timeline & Schedule</h3>
+        <ul>
+          <li>Hackathon duration: 24-48 hours (check event schedule)</li>
+          <li>Project submission deadline will be announced by organizers</li>
+          <li>Presentations will be scheduled in order</li>
+          <li>Each team will have 5 minutes to present their project</li>
+          <li>Q&A session will follow each presentation</li>
+        </ul>
+      </div>
+
+      <div class="rules-section">
+        <h3>🎯 Judging Criteria</h3>
+        <p>Projects will be evaluated based on the following categories:</p>
+        <ul>
+          <li><strong>Innovation:</strong> Originality and creativity of the solution</li>
+          <li><strong>Technical Execution:</strong> Quality of code and implementation</li>
+          <li><strong>Design & UX:</strong> User interface and experience quality</li>
+          <li><strong>Impact:</strong> Potential real-world impact and usefulness</li>
+          <li><strong>Presentation:</strong> Clarity and effectiveness of the demo</li>
+        </ul>
+      </div>
+
+      <div class="rules-section">
+        <h3>🏆 Scoring System</h3>
+        <ul>
+          <li>Each criterion is scored on a scale of 1-10</li>
+          <li>Judges will evaluate projects independently</li>
+          <li>Final scores are calculated as averages across all judges</li>
+          <li>Projects are ranked by their total average score</li>
+          <li>Top 3 projects will receive prizes</li>
+        </ul>
+      </div>
+
+      <div class="rules-section">
+        <h3>⚖️ Code of Conduct</h3>
+        <ul>
+          <li>Respect all participants, judges, and organizers</li>
+          <li>No harassment, discrimination, or inappropriate behavior</li>
+          <li>Maintain a positive and collaborative environment</li>
+          <li>Report any issues to event organizers immediately</li>
+          <li>Violations may result in disqualification</li>
+        </ul>
+      </div>
+
+      <div class="rules-section">
+        <h3>📝 Submission Requirements</h3>
+        <ul>
+          <li>All projects must include a working demo or prototype</li>
+          <li>Source code must be accessible via GitHub or provided repository</li>
+          <li>Include a README with project description and setup instructions</li>
+          <li>Documentation of key features and technologies used</li>
+          <li>Team members must be present for their scheduled presentation</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <!-- ADMIN PAGE -->
