@@ -637,9 +637,31 @@
   </div>
 </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, getDocs, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+const { initializeApp } = firebase;
+// compat SDK exposes firebase.firestore() directly
+function getFirestore(app) { return app.firestore(); }
+function doc(db, ...args) { 
+  let ref = db;
+  for(let i=0;i<args.length;i++) ref = i%2===0 ? ref.collection(args[i]) : ref.doc(args[i]);
+  return ref;
+}
+function collection(db, name) { return db.collection(name); }
+async function setDoc(ref, data) { return ref.set(data); }
+async function getDoc(ref) { 
+  const snap = await ref.get(); 
+  return { exists: () => snap.exists, data: () => snap.data ? snap.data() : undefined, id: snap.id, _snap: snap };
+}
+function onSnapshot(ref, cb) { return ref.onSnapshot(cb); }
+async function addDoc(ref, data) { return ref.add(data); }
+async function getDocs(ref) { const s = await ref.get(); return s; }
+async function deleteDoc(ref) { return ref.delete(); }
+async function updateDoc(ref, data) { return ref.update(data); }
+function increment(n) { return firebase.firestore.FieldValue.increment(n); }
+</script>
+<script>
 
 // ─── FIREBASE INIT ───────────────────────────────────────────────
 const firebaseConfig = {
@@ -670,9 +692,9 @@ let tempCriteria = [];
 let lastActiveProject = null;
 
 // ─── FIREBASE REFS ───────────────────────────────────────────────
-const configRef = doc(db, 'hackathon', 'config');
-const votesCol = collection(db, 'votes');
-const qaCol = collection(db, 'questions');
+const configRef = db.collection('hackathon').doc('config');
+const votesCol = db.collection('votes');
+const qaCol = db.collection('questions');
 
 // ─── INIT ─────────────────────────────────────────────────────────
 async function init() {
@@ -1052,8 +1074,8 @@ window.setActiveProject = async function(name) {
 
 window.resetAllVotes = async function() {
   if (!confirm('Reset ALL votes? This cannot be undone.')) return;
-  const snap = await getDocs(votesCol);
-  await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+  const snap = await votesCol.get();
+  await Promise.all(snap.docs.map(d => d.ref.delete()));
   judgedProjects = new Set();
   currentScores = {};
   renderJudgeForm();
@@ -1076,7 +1098,7 @@ window.upvoteQuestion = async function(id) {
   upvotedQuestions.add(id);
   const btn = document.getElementById('upvote-' + id);
   if (btn) { btn.style.color = 'var(--accent2)'; btn.style.borderColor = 'var(--accent2)'; }
-  await updateDoc(doc(db, 'questions', id), { upvotes: increment(1) });
+  await db.collection('questions').doc(id).update({ upvotes: firebase.firestore.FieldValue.increment(1) });
 }
 
 window.setQaSort = function(sort) {
