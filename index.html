@@ -563,12 +563,25 @@
   <div id="page-qa" class="page">
     <div class="section-title">// Live Q&amp;A</div>
 
-    <div style="display:flex;gap:0.75rem;margin-bottom:1.5rem">
+    <!-- Round selector -->
+    <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;align-items:center;flex-wrap:wrap">
+      <select id="qa-round-select" onchange="onRoundSelect()" style="padding:0.45rem 0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:0.5rem;color:var(--text);font-family:'Syne',sans-serif;font-size:0.85rem;cursor:pointer;outline:none">
+        <option value="live">● Live</option>
+      </select>
+      <div style="flex:1"></div>
+      <button id="archive-btn" onclick="archiveQuestions()" style="display:none;padding:0.35rem 0.9rem;border-radius:2rem;border:1px solid var(--accent3);background:transparent;color:var(--accent3);font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">⟳ New Round</button>
+    </div>
+
+    <!-- Ask box (hidden when viewing archive) -->
+    <div id="qa-ask-box" style="display:flex;gap:0.75rem;margin-bottom:1.25rem">
       <input id="qa-input" class="text-input" style="flex:1" placeholder="Ask an anonymous question..." maxlength="280" onkeydown="if(event.key==='Enter')submitQuestion()">
       <button onclick="submitQuestion()" style="padding:0.6rem 1.25rem;background:var(--accent);color:white;border:none;border-radius:0.5rem;font-family:'Syne',sans-serif;font-weight:800;cursor:pointer;white-space:nowrap;font-size:0.9rem">Ask →</button>
     </div>
 
-    <div id="qa-sort-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem">
+    <!-- Project tag for current round -->
+    <div id="qa-project-tag" style="display:none;margin-bottom:1rem"></div>
+
+    <div id="qa-sort-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
       <button id="sort-top" onclick="setQaSort('top')" style="padding:0.3rem 0.75rem;border-radius:2rem;border:1px solid var(--accent);background:var(--accent);color:white;font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">Top</button>
       <button id="sort-new" onclick="setQaSort('new')" style="padding:0.3rem 0.75rem;border-radius:2rem;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">New</button>
     </div>
@@ -702,8 +715,29 @@ async function init() {
   });
 
   // Listen to Q&A in real time
+  let currentQaRound = 0;
+  let allQuestions = [];
+  let roundMeta = {}; // { roundNum: { project, label } }
+  let viewingRound = 'live'; // 'live' or a round number
+
+  onSnapshot(configRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      const newRound = data.qaRound || 0;
+      if (newRound !== currentQaRound) {
+        currentQaRound = newRound;
+        upvotedQuestions = new Set();
+      }
+      // Store round metadata from config
+      roundMeta = data.roundMeta || {};
+      updateRoundDropdown();
+      updateQaProjectTag();
+    }
+  });
+
   onSnapshot(qaCol, (snap) => {
-    renderQaList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    allQuestions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderQaForView();
   });
 
   // Listen to votes in real time
@@ -749,6 +783,8 @@ window.checkAdminPassword = function() {
   if (val === 'Taiko') {
     adminUnlocked = true;
     closeAuthModal();
+    const archiveBtn = document.getElementById('archive-btn');
+    if (archiveBtn) archiveBtn.style.display = 'inline';
     switchPageDirect('admin');
     document.getElementById('admin-tab').classList.add('active');
     document.querySelectorAll('.nav-tab').forEach(el => { if (el.id !== 'admin-tab') el.classList.remove('active'); });
@@ -1030,7 +1066,9 @@ window.submitQuestion = async function() {
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-  await addDoc(qaCol, { text, upvotes: 0, timestamp: Date.now() });
+  const snap = await getDoc(configRef);
+  const round = snap.exists() ? (snap.data().qaRound || 0) : 0;
+  await addDoc(qaCol, { text, upvotes: 0, timestamp: Date.now(), round });
 }
 
 window.upvoteQuestion = async function(id) {
@@ -1051,6 +1089,73 @@ window.setQaSort = function(sort) {
   });
   const el = document.getElementById('qa-list');
   if (el && el._lastData) renderQaList(el._lastData);
+}
+
+window.archiveQuestions = async function() {
+  if (!adminUnlocked) { requireAdminAuth(); return; }
+  if (!confirm('Archive current questions and start a fresh round for the next project?')) return;
+  const snap = await getDoc(configRef);
+  const data = snap.exists() ? snap.data() : {};
+  const currentRound = data.qaRound || 0;
+  const newRound = currentRound + 1;
+  // Save metadata: which project was active for the round being archived
+  const meta = data.roundMeta || {};
+  meta[currentRound] = { project: state.activeProject || 'Round ' + (currentRound + 1), label: 'Round ' + (currentRound + 1) };
+  await setDoc(configRef, { ...data, qaRound: newRound, roundMeta: meta });
+}
+
+window.onRoundSelect = function() {
+  const sel = document.getElementById('qa-round-select');
+  viewingRound = sel.value === 'live' ? 'live' : parseInt(sel.value);
+  const askBox = document.getElementById('qa-ask-box');
+  if (askBox) askBox.style.display = viewingRound === 'live' ? 'flex' : 'none';
+  updateQaProjectTag();
+  renderQaForView();
+}
+
+function updateRoundDropdown() {
+  const sel = document.getElementById('qa-round-select');
+  if (!sel) return;
+  const currentVal = sel.value;
+  // Build options: live + all archived rounds
+  let opts = '<option value="live">● Live</option>';
+  const rounds = Object.keys(roundMeta).map(Number).sort((a,b) => b - a);
+  rounds.forEach(r => {
+    const m = roundMeta[r];
+    opts += '<option value="' + r + '">' + escapeHtml(m.project || ('Round ' + (r+1))) + '</option>';
+  });
+  sel.innerHTML = opts;
+  // Restore selection if still valid
+  const vals = ['live', ...rounds.map(String)];
+  sel.value = vals.includes(currentVal) ? currentVal : 'live';
+}
+
+function updateQaProjectTag() {
+  const tag = document.getElementById('qa-project-tag');
+  if (!tag) return;
+  if (viewingRound === 'live') {
+    // Show current active project
+    if (state.activeProject) {
+      tag.style.display = 'block';
+      tag.innerHTML = '<span style="font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--accent2);letter-spacing:0.1em;text-transform:uppercase">Now presenting</span><div style="font-size:1.1rem;font-weight:800;margin-top:0.15rem">' + escapeHtml(state.activeProject) + '</div>';
+    } else {
+      tag.style.display = 'none';
+    }
+  } else {
+    const m = roundMeta[viewingRound];
+    if (m) {
+      tag.style.display = 'block';
+      tag.innerHTML = '<span style="font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase">Archived — </span><span style="font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--text-muted)">' + escapeHtml(m.project || '') + '</span>';
+    } else {
+      tag.style.display = 'none';
+    }
+  }
+}
+
+function renderQaForView() {
+  const round = viewingRound === 'live' ? currentQaRound : viewingRound;
+  const filtered = allQuestions.filter(q => (q.round || 0) === round);
+  renderQaList(filtered);
 }
 
 function escapeHtml(t) {
