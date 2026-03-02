@@ -4,1232 +4,668 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hackathon Grader</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --surface2: #1a1a26;
-    --border: #2a2a3f;
-    --accent: #7c3aed;
-    --accent2: #06d6a0;
-    --accent3: #f72585;
-    --text: #e8e8f0;
-    --text-muted: #6b6b8a;
-    --gold: #ffd60a;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'Syne', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: 
-      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(124,58,237,0.12) 0%, transparent 60%),
-      radial-gradient(ellipse 40% 30% at 80% 80%, rgba(6,214,160,0.08) 0%, transparent 60%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .app { position: relative; z-index: 1; }
-
-  /* NAV */
-  nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.2rem 2rem;
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(10px);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(10,10,15,0.85);
-  }
-
-  .logo {
-    font-family: 'Space Mono', monospace;
-    font-size: 1rem;
-    letter-spacing: 0.1em;
-    color: var(--accent2);
-  }
-  .logo span { color: var(--text-muted); }
-
-  .nav-tabs {
-    display: flex;
-    gap: 0.25rem;
-    background: var(--surface);
-    padding: 0.25rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-  }
-
-  .nav-tab {
-    padding: 0.4rem 1rem;
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: 'Syne', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    border-radius: 0.35rem;
-    transition: all 0.2s;
-  }
-  .nav-tab.active {
-    background: var(--accent);
-    color: white;
-  }
-
-  /* PAGES */
-  .page { display: none; padding: 2rem; max-width: 900px; margin: 0 auto; }
-  .page.active { display: block; }
-
-  /* SECTION TITLE */
-  .section-title {
-    font-size: 0.7rem;
-    font-family: 'Space Mono', monospace;
-    letter-spacing: 0.15em;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-  }
-
-  /* CURRENT PROJECT BANNER */
-  .current-banner {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent2);
-    border-radius: 0.75rem;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .current-label {
-    font-size: 0.7rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--accent2);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: 0.3rem;
-  }
-
-  .current-project-name {
-    font-size: 1.5rem;
-    font-weight: 800;
-  }
-
-  .live-dot {
-    width: 10px;
-    height: 10px;
-    background: var(--accent2);
-    border-radius: 50%;
-    animation: pulse 1.5s infinite;
-    flex-shrink: 0;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.8); }
-  }
-
-  /* SCORE FORM */
-  .score-grid {
-    display: grid;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .criterion-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 1.25rem 1.5rem;
-    transition: border-color 0.2s;
-  }
-  .criterion-card:focus-within { border-color: var(--accent); }
-
-  .criterion-name {
-    font-weight: 600;
-    font-size: 1rem;
-    margin-bottom: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .score-display {
-    font-family: 'Space Mono', monospace;
-    font-size: 1.1rem;
-    color: var(--accent2);
-    min-width: 2.5rem;
-    text-align: right;
-  }
-
-  .stars {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-  }
-
-  .star-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 0.4rem;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.15s;
-    font-weight: 700;
-  }
-
-  .star-btn:hover { border-color: var(--accent); color: var(--text); }
-  .star-btn.selected {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-
-  .submit-btn {
-    width: 100%;
-    padding: 1rem;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 0.75rem;
-    font-family: 'Syne', sans-serif;
-    font-size: 1rem;
-    font-weight: 800;
-    cursor: pointer;
-    letter-spacing: 0.05em;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-  }
-  .submit-btn:hover { background: #6d28d9; transform: translateY(-1px); }
-  .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-  .success-msg {
-    text-align: center;
-    padding: 2rem;
-    background: var(--surface);
-    border: 1px solid var(--accent2);
-    border-radius: 0.75rem;
-    display: none;
-  }
-  .success-msg.show { display: block; }
-  .success-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-  .success-msg h3 { font-size: 1.2rem; color: var(--accent2); }
-  .success-msg p { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem; }
-
-  /* LEADERBOARD */
-  .leaderboard { display: grid; gap: 0.75rem; }
-
-  .lb-row {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 1rem 1.25rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    transition: all 0.3s;
-  }
-
-  .lb-row.lb-new {
-    animation: slideIn 0.35s ease forwards;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .lb-row:first-child {
-    border-color: var(--gold);
-    background: linear-gradient(135deg, rgba(255,214,10,0.07) 0%, var(--surface) 100%);
-  }
-  .lb-row:nth-child(2) { border-color: rgba(180,180,200,0.3); }
-  .lb-row:nth-child(3) { border-color: rgba(180,100,50,0.3); }
-
-  .lb-rank {
-    font-family: 'Space Mono', monospace;
-    font-size: 1.2rem;
-    font-weight: 700;
-    width: 2rem;
-    text-align: center;
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-  .lb-row:first-child .lb-rank { color: var(--gold); }
-
-  .lb-name { font-weight: 700; font-size: 1rem; flex: 1; }
-
-  .lb-votes {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-  }
-
-  .lb-score {
-    font-family: 'Space Mono', monospace;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--accent2);
-    min-width: 3.5rem;
-    text-align: right;
-  }
-
-  .lb-bar-wrap {
-    flex: 1;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-    max-width: 120px;
-  }
-  .lb-bar {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    border-radius: 2px;
-    transition: width 0.5s ease;
-  }
-
-  /* ADMIN */
-  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-  @media (max-width: 640px) { .admin-grid { grid-template-columns: 1fr; } }
-
-  .admin-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-  }
-
-  .admin-card h3 {
-    font-size: 0.75rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--text-muted);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: 1rem;
-  }
-
-  .project-list { display: grid; gap: 0.5rem; }
-
-  .project-btn {
-    width: 100%;
-    text-align: left;
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
-    font-family: 'Syne', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .project-btn:hover { border-color: var(--accent); }
-  .project-btn.active-proj {
-    border-color: var(--accent2);
-    color: var(--accent2);
-    background: rgba(6,214,160,0.05);
-  }
-
-  .vote-count {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-  }
-
-  .reset-btn {
-    margin-top: 0.75rem;
-    width: 100%;
-    padding: 0.6rem;
-    border: 1px solid var(--accent3);
-    background: transparent;
-    color: var(--accent3);
-    border-radius: 0.5rem;
-    font-family: 'Syne', sans-serif;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .reset-btn:hover { background: rgba(247,37,133,0.1); }
-
-  .stats-grid { display: grid; gap: 0.5rem; }
-
-  .stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.85rem;
-  }
-  .stat-row:last-child { border-bottom: none; }
-  .stat-val {
-    font-family: 'Space Mono', monospace;
-    color: var(--accent2);
-    font-size: 0.9rem;
-  }
-
-  /* WAITING STATE */
-  .waiting-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--text-muted);
-  }
-  .waiting-state .big { font-size: 3rem; margin-bottom: 1rem; }
-  .waiting-state h3 { font-size: 1.1rem; color: var(--text); margin-bottom: 0.5rem; }
-
-  /* EDIT MODE */
-  .edit-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    margin-bottom: 1.5rem;
-  }
-  .edit-section h3 {
-    font-size: 0.75rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--text-muted);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: 1rem;
-  }
-  .tag-input-wrap { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-  .text-input {
-    flex: 1;
-    padding: 0.6rem 0.9rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    color: var(--text);
-    font-family: 'Syne', sans-serif;
-    font-size: 0.9rem;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .text-input:focus { border-color: var(--accent); }
-  .add-btn {
-    padding: 0.6rem 1rem;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 0.5rem;
-    font-family: 'Syne', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .tag {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.75rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 2rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-  .tag-remove {
-    cursor: pointer;
-    color: var(--text-muted);
-    font-size: 1rem;
-    line-height: 1;
-    transition: color 0.2s;
-  }
-  .tag-remove:hover { color: var(--accent3); }
-
-  .save-config-btn {
-    padding: 0.75rem 2rem;
-    background: var(--accent2);
-    color: #0a0a0f;
-    border: none;
-    border-radius: 0.5rem;
-    font-family: 'Syne', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .save-config-btn:hover { opacity: 0.85; }
-
-  .badge {
-    display: inline-block;
-    padding: 0.15rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.65rem;
-    font-family: 'Space Mono', monospace;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-  .badge-admin { background: rgba(247,37,133,0.15); color: var(--accent3); border: 1px solid rgba(247,37,133,0.3); }
+:root {
+  --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3f;
+  --accent:#7c3aed;--accent2:#06d6a0;--accent3:#f72585;
+  --text:#e8e8f0;--muted:#6b6b8a;--gold:#ffd60a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Syne",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 60% 40% at 20% 10%,rgba(124,58,237,.12) 0%,transparent 60%),
+             radial-gradient(ellipse 40% 30% at 80% 80%,rgba(6,214,160,.08) 0%,transparent 60%)}
+.app{position:relative;z-index:1}
+nav{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 2rem;
+  border-bottom:1px solid var(--border);backdrop-filter:blur(10px);position:sticky;top:0;
+  z-index:100;background:rgba(10,10,15,.85)}
+.logo{font-family:"Space Mono",monospace;font-size:1rem;letter-spacing:.1em;color:var(--accent2)}
+.logo span{color:var(--muted)}
+.nav-tabs{display:flex;gap:.25rem;background:var(--surface);padding:.25rem;border-radius:.5rem;border:1px solid var(--border)}
+.nav-tab{padding:.4rem 1rem;border:none;background:transparent;color:var(--muted);
+  font-family:"Syne",sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;
+  border-radius:.35rem;transition:all .2s}
+.nav-tab.active{background:var(--accent);color:white}
+.page{display:none;padding:2rem;max-width:900px;margin:0 auto}
+.page.active{display:block}
+.section-title{font-size:.7rem;font-family:"Space Mono",monospace;letter-spacing:.15em;
+  color:var(--muted);text-transform:uppercase;margin-bottom:1.5rem}
+.modal-overlay{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);
+  backdrop-filter:blur(6px);align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:1rem;
+  padding:2rem;width:100%;max-width:360px;margin:1rem}
+.text-input{padding:.6rem .9rem;background:var(--surface2);border:1px solid var(--border);
+  border-radius:.5rem;color:var(--text);font-family:"Syne",sans-serif;font-size:.9rem;
+  outline:none;transition:border-color .2s;width:100%}
+.text-input:focus{border-color:var(--accent)}
+.current-banner{background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--accent2);border-radius:.75rem;padding:1.25rem 1.5rem;
+  margin-bottom:2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.live-dot{width:10px;height:10px;background:var(--accent2);border-radius:50%;
+  animation:pulse 1.5s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.score-grid{display:grid;gap:1rem;margin-bottom:1.5rem}
+.criterion-card{background:var(--surface);border:1px solid var(--border);border-radius:.75rem;
+  padding:1.25rem 1.5rem;transition:border-color .2s}
+.criterion-card:focus-within{border-color:var(--accent)}
+.stars{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:1rem}
+.star-btn{width:38px;height:38px;border-radius:.4rem;border:1px solid var(--border);
+  background:var(--surface2);color:var(--muted);font-family:"Space Mono",monospace;
+  font-size:.8rem;cursor:pointer;transition:all .15s;font-weight:700}
+.star-btn:hover{border-color:var(--accent);color:var(--text)}
+.star-btn.sel{background:var(--accent);border-color:var(--accent);color:white}
+.submit-btn{width:100%;padding:1rem;background:var(--accent);color:white;border:none;
+  border-radius:.75rem;font-family:"Syne",sans-serif;font-size:1rem;font-weight:800;
+  cursor:pointer;transition:all .2s}
+.submit-btn:hover{background:#6d28d9;transform:translateY(-1px)}
+.submit-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.success-msg{text-align:center;padding:2rem;background:var(--surface);
+  border:1px solid var(--accent2);border-radius:.75rem;display:none}
+.success-msg.show{display:block}
+.waiting{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.waiting .icon{font-size:3rem;margin-bottom:1rem}
+.waiting h3{font-size:1.1rem;color:var(--text);margin-bottom:.5rem}
+.leaderboard{display:grid;gap:.75rem}
+.lb-row{background:var(--surface);border:1px solid var(--border);border-radius:.75rem;
+  padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;transition:all .3s}
+.lb-row.new{animation:slideIn .35s ease forwards}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.lb-rank{font-family:"Space Mono",monospace;font-size:1.2rem;font-weight:700;
+  width:2rem;text-align:center;color:var(--muted);flex-shrink:0}
+.lb-name{font-weight:700;font-size:1rem;flex:1}
+.lb-bar-wrap{flex:1;height:4px;background:var(--border);border-radius:2px;
+  overflow:hidden;max-width:120px}
+.lb-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));
+  border-radius:2px;transition:width .5s ease}
+.lb-votes{font-family:"Space Mono",monospace;font-size:.7rem;color:var(--muted)}
+.lb-score{font-family:"Space Mono",monospace;font-size:1.3rem;font-weight:700;
+  color:var(--accent2);min-width:3.5rem;text-align:right}
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:640px){.admin-grid{grid-template-columns:1fr}}
+.admin-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:.75rem;padding:1.25rem}
+.admin-card h3{font-size:.75rem;font-family:"Space Mono",monospace;color:var(--muted);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem}
+.project-list{display:grid;gap:.5rem}
+.project-btn{width:100%;text-align:left;padding:.75rem 1rem;border-radius:.5rem;
+  border:1px solid var(--border);background:var(--surface2);color:var(--text);
+  font-family:"Syne",sans-serif;font-size:.9rem;font-weight:600;cursor:pointer;
+  transition:all .2s;display:flex;justify-content:space-between;align-items:center}
+.project-btn:hover{border-color:var(--accent)}
+.project-btn.active-proj{border-color:var(--accent2);color:var(--accent2);
+  background:rgba(6,214,160,.05)}
+.vote-count{font-family:"Space Mono",monospace;font-size:.7rem;color:var(--muted)}
+.stat-row{display:flex;justify-content:space-between;align-items:center;
+  padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.stat-row:last-child{border-bottom:none}
+.stat-val{font-family:"Space Mono",monospace;color:var(--accent2)}
+.edit-section{background:var(--surface);border:1px solid var(--border);
+  border-radius:.75rem;padding:1.25rem;margin-bottom:1.5rem}
+.edit-section h3{font-size:.75rem;font-family:"Space Mono",monospace;color:var(--muted);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem}
+.tag-row{display:flex;gap:.5rem;margin-bottom:.75rem}
+.tags{display:flex;flex-wrap:wrap;gap:.4rem}
+.tag{display:flex;align-items:center;gap:.4rem;padding:.3rem .75rem;
+  background:var(--surface2);border:1px solid var(--border);border-radius:2rem;
+  font-size:.8rem;font-weight:600}
+.tag-x{cursor:pointer;color:var(--muted);font-size:1rem;line-height:1}
+.tag-x:hover{color:var(--accent3)}
+.qa-item{background:var(--surface);border:1px solid var(--border);border-radius:.75rem;
+  padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem}
+.qa-text{flex:1;font-size:.95rem;line-height:1.5}
+.qa-upvote{display:flex;flex-direction:column;align-items:center;gap:.15rem;
+  padding:.4rem .6rem;border-radius:.5rem;border:1px solid var(--border);
+  background:transparent;cursor:pointer;color:var(--muted);transition:all .2s;flex-shrink:0}
+.qa-upvote.voted{color:var(--accent2);border-color:var(--accent2)}
+.qa-upvote span{font-family:"Space Mono",monospace;font-size:.75rem;font-weight:700}
+.pill{padding:.3rem .75rem;border-radius:2rem;font-family:"Syne",sans-serif;
+  font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);
+  background:transparent;color:var(--muted);transition:all .2s}
+.pill.active{background:var(--accent);border-color:var(--accent);color:white}
+.pill.danger{border-color:var(--accent3);color:var(--accent3)}
+.pill.danger:hover{background:rgba(247,37,133,.1)}
+select.round-sel{padding:.4rem .75rem;background:var(--surface2);border:1px solid var(--border);
+  border-radius:.5rem;color:var(--text);font-family:"Syne",sans-serif;font-size:.85rem;cursor:pointer;outline:none}
+.round-label{font-size:.75rem;font-family:"Space Mono",monospace;color:var(--muted);
+  padding:.5rem 0;margin-bottom:.75rem}
+.round-label b{color:var(--accent2)}
+.save-btn{padding:.75rem 2rem;background:var(--accent2);color:#0a0a0f;border:none;
+  border-radius:.5rem;font-family:"Syne",sans-serif;font-size:.9rem;font-weight:800;cursor:pointer}
+.reset-btn{padding:.6rem 1rem;background:transparent;border:1px solid var(--accent3);
+  color:var(--accent3);border-radius:.5rem;font-family:"Syne",sans-serif;
+  font-size:.8rem;font-weight:600;cursor:pointer;margin-top:.75rem;width:100%}
+.reset-btn:hover{background:rgba(247,37,133,.1)}
 </style>
 </head>
 <body>
 <div class="app">
+
   <nav>
     <div class="logo">HACK<span>/</span>GRADE</div>
     <div class="nav-tabs">
-      <button class="nav-tab active" onclick="switchPage('judge')">Judge</button>
-      <button class="nav-tab" onclick="switchPage('leaderboard')">Leaderboard</button>
-      <button class="nav-tab" onclick="switchPage('qa')">Q&amp;A <span id="qa-count-badge" style="display:none;background:var(--accent3);color:white;border-radius:1rem;font-size:0.6rem;padding:0.1rem 0.4rem;font-family:'Space Mono',monospace;margin-left:0.2rem"></span></button>
-      <button class="nav-tab" id="admin-tab" onclick="requireAdminAuth()">Admin <span class="badge badge-admin">●</span></button>
+      <button class="nav-tab active" onclick="showPage('judge',this)">Judge</button>
+      <button class="nav-tab" onclick="showPage('leaderboard',this)">Leaderboard</button>
+      <button class="nav-tab" onclick="showPage('qa',this)">Q&amp;A <span id="qa-badge" style="display:none;background:var(--accent3);color:white;border-radius:1rem;font-size:.6rem;padding:.1rem .35rem;font-family:'Space Mono',monospace"></span></button>
+      <button class="nav-tab" onclick="adminTabClick(this)" id="admin-nav-btn">Admin <span style="background:rgba(247,37,133,.15);color:var(--accent3);border:1px solid rgba(247,37,133,.3);border-radius:.25rem;font-size:.6rem;font-family:'Space Mono',monospace;padding:.1rem .4rem">●</span></button>
     </div>
   </nav>
 
   <!-- PASSWORD MODAL -->
-  <div id="auth-modal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;">
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:1rem;padding:2rem;width:100%;max-width:360px;margin:1rem;">
-      <div style="font-family:'Space Mono',monospace;font-size:0.7rem;letter-spacing:0.15em;color:var(--text-muted);text-transform:uppercase;margin-bottom:0.75rem">// Admin Access</div>
-      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1.5rem">Enter password to continue</div>
-      <input id="admin-password-input" type="password" class="text-input" style="width:100%;margin-bottom:0.75rem" placeholder="Password" onkeydown="if(event.key==='Enter')checkAdminPassword()">
-      <div id="auth-error" style="color:var(--accent3);font-size:0.8rem;margin-bottom:0.75rem;display:none">Incorrect password. Try again.</div>
-      <div style="display:flex;gap:0.5rem">
-        <button onclick="closeAuthModal()" style="flex:1;padding:0.75rem;border:1px solid var(--border);background:transparent;color:var(--text-muted);border-radius:0.5rem;font-family:'Syne',sans-serif;font-weight:600;cursor:pointer">Cancel</button>
-        <button onclick="checkAdminPassword()" style="flex:2;padding:0.75rem;background:var(--accent);color:white;border:none;border-radius:0.5rem;font-family:'Syne',sans-serif;font-weight:800;cursor:pointer">Unlock →</button>
+  <div class="modal-overlay" id="pw-modal">
+    <div class="modal-box">
+      <div style="font-family:'Space Mono',monospace;font-size:.7rem;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:.75rem">// Admin Access</div>
+      <div style="font-size:1.2rem;font-weight:800;margin-bottom:1.5rem">Enter password</div>
+      <input type="password" class="text-input" id="pw-input" placeholder="Password" style="margin-bottom:.75rem" onkeydown="if(event.key==='Enter')checkPw()">
+      <div id="pw-error" style="color:var(--accent3);font-size:.8rem;margin-bottom:.75rem;display:none">Incorrect password.</div>
+      <div style="display:flex;gap:.5rem">
+        <button onclick="closePwModal()" style="flex:1;padding:.75rem;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:.5rem;font-family:'Syne',sans-serif;font-weight:600;cursor:pointer">Cancel</button>
+        <button onclick="checkPw()" style="flex:2;padding:.75rem;background:var(--accent);color:white;border:none;border-radius:.5rem;font-family:'Syne',sans-serif;font-weight:800;cursor:pointer">Unlock</button>
       </div>
     </div>
   </div>
 
   <!-- JUDGE PAGE -->
-  <div id="page-judge" class="page active">
+  <div class="page active" id="page-judge">
     <div class="section-title">// Judge Panel</div>
-
-    <div id="judge-waiting" class="waiting-state" style="display:none">
-      <div class="big">⏳</div>
+    <div id="judge-waiting" class="waiting" style="display:none">
+      <div class="icon">⏳</div>
       <h3>Waiting for next project...</h3>
-      <p style="font-size:0.85rem;margin-top:0.25rem">The admin will switch to the next presentation shortly.</p>
+      <p style="font-size:.85rem">Admin will start the session shortly.</p>
     </div>
-
-    <div id="judge-form-wrap">
+    <div id="judge-main">
       <div class="current-banner">
         <div>
-          <div class="current-label">Now presenting</div>
-          <div class="current-project-name" id="judge-project-name">—</div>
+          <div style="font-size:.7rem;font-family:'Space Mono',monospace;color:var(--accent2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.3rem">Now presenting</div>
+          <div style="font-size:1.5rem;font-weight:800" id="judge-project-name">—</div>
         </div>
         <div class="live-dot"></div>
       </div>
-
       <div id="score-form">
         <div class="score-grid" id="criteria-cards"></div>
-        <button class="submit-btn" id="submit-btn" onclick="submitVote()">Submit Score</button>
+        <button class="submit-btn" id="submit-btn" onclick="submitVote()" disabled>Score all categories to submit</button>
       </div>
-
       <div class="success-msg" id="success-msg">
-        <div class="success-icon">✅</div>
-        <h3>Score submitted!</h3>
-        <p>Waiting for the next project to be announced.</p>
+        <div style="font-size:2.5rem;margin-bottom:.5rem">✅</div>
+        <h3 style="font-size:1.2rem;color:var(--accent2)">Score submitted!</h3>
+        <p style="color:var(--muted);font-size:.85rem;margin-top:.25rem">Waiting for the next project.</p>
       </div>
     </div>
   </div>
 
   <!-- LEADERBOARD PAGE -->
-  <div id="page-leaderboard" class="page">
+  <div class="page" id="page-leaderboard">
     <div class="section-title">// Live Leaderboard</div>
-    <div class="leaderboard" id="leaderboard-list"></div>
+    <div class="leaderboard" id="lb-list"></div>
   </div>
 
-
   <!-- Q&A PAGE -->
-  <div id="page-qa" class="page">
+  <div class="page" id="page-qa">
     <div class="section-title">// Live Q&amp;A</div>
-
-    <!-- Round selector -->
-    <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;align-items:center;flex-wrap:wrap">
-      <select id="qa-round-select" onchange="onRoundSelect()" style="padding:0.45rem 0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:0.5rem;color:var(--text);font-family:'Syne',sans-serif;font-size:0.85rem;cursor:pointer;outline:none">
-        <option value="live">● Live</option>
-      </select>
+    <div style="display:flex;gap:.75rem;margin-bottom:1.25rem" id="qa-ask-row">
+      <input class="text-input" id="qa-input" placeholder="Ask an anonymous question..." maxlength="280" onkeydown="if(event.key==='Enter')submitQ()">
+      <button onclick="submitQ()" style="padding:.6rem 1.25rem;background:var(--accent);color:white;border:none;border-radius:.5rem;font-family:'Syne',sans-serif;font-weight:800;cursor:pointer;white-space:nowrap">Ask →</button>
+    </div>
+    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+      <button class="pill active" id="pill-top" onclick="setSort('top')">Top</button>
+      <button class="pill" id="pill-new" onclick="setSort('new')">New</button>
       <div style="flex:1"></div>
-      <button id="archive-btn" onclick="archiveQuestions()" style="display:none;padding:0.35rem 0.9rem;border-radius:2rem;border:1px solid var(--accent3);background:transparent;color:var(--accent3);font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">⟳ New Round</button>
+      <select class="round-sel" id="round-sel" onchange="onRoundChange()" style="display:none"></select>
+      <button class="pill danger" id="new-round-btn" onclick="newRound()" style="display:none">⟳ New Round</button>
     </div>
-
-    <!-- Ask box (hidden when viewing archive) -->
-    <div id="qa-ask-box" style="display:flex;gap:0.75rem;margin-bottom:1.25rem">
-      <input id="qa-input" class="text-input" style="flex:1" placeholder="Ask an anonymous question..." maxlength="280" onkeydown="if(event.key==='Enter')submitQuestion()">
-      <button onclick="submitQuestion()" style="padding:0.6rem 1.25rem;background:var(--accent);color:white;border:none;border-radius:0.5rem;font-family:'Syne',sans-serif;font-weight:800;cursor:pointer;white-space:nowrap;font-size:0.9rem">Ask →</button>
-    </div>
-
-    <!-- Project tag for current round -->
-    <div id="qa-project-tag" style="display:none;margin-bottom:1rem"></div>
-
-    <div id="qa-sort-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem;align-items:center">
-      <button id="sort-top" onclick="setQaSort('top')" style="padding:0.3rem 0.75rem;border-radius:2rem;border:1px solid var(--accent);background:var(--accent);color:white;font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">Top</button>
-      <button id="sort-new" onclick="setQaSort('new')" style="padding:0.3rem 0.75rem;border-radius:2rem;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">New</button>
-    </div>
-
-    <div id="qa-list" style="display:grid;gap:0.75rem"></div>
+    <div id="qa-round-label" class="round-label" style="display:none"></div>
+    <div id="qa-list" style="display:grid;gap:.75rem"></div>
   </div>
 
   <!-- ADMIN PAGE -->
-  <div id="page-admin" class="page" style="display:none!important">
+  <div class="page" id="page-admin" style="display:none!important">
     <div class="section-title">// Admin Panel</div>
-
-    <!-- CONFIG SECTION -->
-    <div class="edit-section" id="config-section">
-      <h3>⚙ Setup — Projects & Categories</h3>
+    <div class="edit-section" id="setup-section">
+      <h3>⚙ Setup</h3>
       <div style="display:grid;gap:1rem;margin-bottom:1.25rem">
         <div>
-          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem">Projects / Teams</div>
-          <div class="tag-input-wrap">
-            <input class="text-input" id="project-input" placeholder="e.g. Team Alpha" onkeydown="if(event.key==='Enter')addItem('project')">
-            <button class="add-btn" onclick="addItem('project')">Add</button>
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Projects / Teams</div>
+          <div class="tag-row">
+            <input class="text-input" id="proj-input" placeholder="e.g. Team Alpha" onkeydown="if(event.key==='Enter')addTag('proj')">
+            <button onclick="addTag('proj')" style="padding:.6rem 1rem;background:var(--accent);color:white;border:none;border-radius:.5rem;font-family:'Syne',sans-serif;font-weight:700;cursor:pointer">Add</button>
           </div>
-          <div class="tags" id="project-tags"></div>
+          <div class="tags" id="proj-tags"></div>
         </div>
         <div>
-          <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem">Scoring Categories</div>
-          <div class="tag-input-wrap">
-            <input class="text-input" id="criteria-input" placeholder="e.g. Innovation" onkeydown="if(event.key==='Enter')addItem('criteria')">
-            <button class="add-btn" onclick="addItem('criteria')">Add</button>
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:.5rem">Scoring Categories</div>
+          <div class="tag-row">
+            <input class="text-input" id="crit-input" placeholder="e.g. Innovation" onkeydown="if(event.key==='Enter')addTag('crit')">
+            <button onclick="addTag('crit')" style="padding:.6rem 1rem;background:var(--accent);color:white;border:none;border-radius:.5rem;font-family:'Syne',sans-serif;font-weight:700;cursor:pointer">Add</button>
           </div>
-          <div class="tags" id="criteria-tags"></div>
+          <div class="tags" id="crit-tags"></div>
         </div>
       </div>
-      <button class="save-config-btn" onclick="saveConfig()">Save & Start Hackathon →</button>
+      <button class="save-btn" onclick="saveConfig()">Save &amp; Start →</button>
     </div>
-
-    <!-- CONTROLS (shown after config saved) -->
     <div id="admin-controls" style="display:none">
       <div class="admin-grid">
         <div class="admin-card">
-          <h3>🎯 Select Active Project</h3>
-          <div class="project-list" id="admin-project-list"></div>
-          <button class="reset-btn" onclick="resetAllVotes()">⚠ Reset All Votes</button>
+          <h3>🎯 Active Project</h3>
+          <div class="project-list" id="admin-proj-list"></div>
+          <button class="reset-btn" onclick="resetVotes()">⚠ Reset All Votes</button>
         </div>
         <div class="admin-card">
-          <h3>📊 Live Stats</h3>
-          <div class="stats-grid" id="admin-stats"></div>
+          <h3>📊 Stats</h3>
+          <div id="admin-stats"></div>
         </div>
       </div>
       <div style="margin-top:1rem">
-        <button class="reset-btn" style="width:auto;padding:0.5rem 1rem;border-color:var(--text-muted);color:var(--text-muted)" onclick="reconfigure()">← Reconfigure Projects</button>
+        <button onclick="reconfig()" style="padding:.5rem 1rem;border:1px solid var(--muted);background:transparent;color:var(--muted);border-radius:.5rem;font-family:'Syne',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer">← Reconfigure</button>
       </div>
     </div>
   </div>
-</div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</div><!-- .app -->
+
 <script>
-// compat SDK exposes firebase.firestore() directly
-function getFirestore(app) { return app.firestore(); }
-function doc(db, ...args) { 
-  let ref = db;
-  for(let i=0;i<args.length;i++) ref = i%2===0 ? ref.collection(args[i]) : ref.doc(args[i]);
-  return ref;
-}
-function collection(db, name) { return db.collection(name); }
-async function setDoc(ref, data) { return ref.set(data); }
-async function getDoc(ref) { 
-  const snap = await ref.get(); 
-  return { exists: () => snap.exists, data: () => snap.data ? snap.data() : undefined, id: snap.id, _snap: snap };
-}
-function onSnapshot(ref, cb) { return ref.onSnapshot(cb); }
-async function addDoc(ref, data) { return ref.add(data); }
-async function getDocs(ref) { const s = await ref.get(); return s; }
-async function deleteDoc(ref) { return ref.delete(); }
-async function updateDoc(ref, data) { return ref.update(data); }
-function increment(n) { return firebase.firestore.FieldValue.increment(n); }
-</script>
-<script>
+// ── FIREBASE ──────────────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey:"AIzaSyDtQkBbbBJPK8-tGcQaYyTWEqTX0UAz7X4",
+  authDomain:"taiko-hackathon.firebaseapp.com",
+  projectId:"taiko-hackathon",
+  storageBucket:"taiko-hackathon.firebasestorage.app",
+  messagingSenderId:"328607716900",
+  appId:"1:328607716900:web:8d647ae512165b37846ab1"
+});
+const db = firebase.firestore();
+const configRef = db.collection("hackathon").doc("config");
+const votesCol = db.collection("votes");
+const qaCol = db.collection("questions");
 
-// ─── FIREBASE INIT ───────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyDtQkBbbBJPK8-tGcQaYyTWEqTX0UAz7X4",
-  authDomain: "taiko-hackathon.firebaseapp.com",
-  projectId: "taiko-hackathon",
-  storageBucket: "taiko-hackathon.firebasestorage.app",
-  messagingSenderId: "328607716900",
-  appId: "1:328607716900:web:8d647ae512165b37846ab1"
-};
-const app = firebase.initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// ─── STATE ───────────────────────────────────────────────────────
-let state = {
-  projects: [],
-  criteria: [],
-  activeProject: null,
-  votes: {},
-  configured: false
-};
-let judgedProjects = new Set(); // local per-browser session
-let qaSort = 'top';
-let upvotedQuestions = new Set(); // local session tracking
+// ── STATE ─────────────────────────────────────────────────────────
+let cfg = { projects:[], criteria:[], activeProject:null, configured:false, qaRound:0, roundMeta:{} };
+let votes = {};
+let allQuestions = [];
+let tempProj = [], tempCrit = [];
 let currentScores = {};
-let tempProjects = [];
-let tempCriteria = [];
+let submittedProjects = new Set();
+let upvoted = new Set();
+let adminUnlocked = false;
+let qaSort = "top";
+let viewRound = "live";
 let lastActiveProject = null;
 
-// ─── FIREBASE REFS ───────────────────────────────────────────────
-const configRef = db.collection('hackathon').doc('config');
-const votesCol = db.collection('votes');
-const qaCol = db.collection('questions');
-
-// ─── INIT ─────────────────────────────────────────────────────────
-async function init() {
-  showLoading(true);
-
-  // Listen to config changes in real time
-  onSnapshot(configRef, (snap) => {
-    if (snap.exists) {
-      const data = snap.data();
-      state.projects = data.projects || [];
-      state.criteria = data.criteria || [];
-      state.activeProject = data.activeProject || null;
-      state.configured = data.configured || false;
-      tempProjects = [...state.projects];
-      tempCriteria = [...state.criteria];
-
-      // If active project changed, reset local voted state for new project
-      if (state.activeProject !== lastActiveProject) {
-        lastActiveProject = state.activeProject;
-        currentScores = {};
-        renderJudgeForm();
-      }
-
-      renderConfigTags();
-      updateJudgeView();
-      renderAdminControls();
-
-      if (state.configured) {
-        document.getElementById('config-section').style.display = 'none';
-        document.getElementById('admin-controls').style.display = 'block';
-      } else {
-        document.getElementById('config-section').style.display = 'block';
-        document.getElementById('admin-controls').style.display = 'none';
-      }
-    } else {
-      // No config yet
-      renderConfigTags();
-    }
-    showLoading(false);
-  });
-
-  // Listen to Q&A in real time
-  let currentQaRound = 0;
-  let allQuestions = [];
-  let roundMeta = {}; // { roundNum: { project, label } }
-  let viewingRound = 'live'; // 'live' or a round number
-
-  onSnapshot(configRef, (snap) => {
-    if (snap.exists) {
-      const data = snap.data();
-      const newRound = data.qaRound || 0;
-      if (newRound !== currentQaRound) {
-        currentQaRound = newRound;
-        upvotedQuestions = new Set();
-      }
-      // Store round metadata from config
-      roundMeta = data.roundMeta || {};
-      updateRoundDropdown();
-      updateQaProjectTag();
-    }
-  });
-
-  onSnapshot(qaCol, (snap) => {
-    allQuestions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderQaForView();
-  });
-
-  // Listen to votes in real time
-  onSnapshot(votesCol, (snap) => {
-    state.votes = {};
-    snap.forEach(d => {
-      const v = d.data();
-      if (!state.votes[v.project]) state.votes[v.project] = [];
-      state.votes[v.project].push(v.scores);
-    });
-    renderLeaderboard();
-    renderAdminControls();
-    renderAdminStats();
-  });
-}
-
-function showLoading(show) {
-  // Simple loading indicator in nav
-  const logo = document.querySelector('.logo');
-  logo.innerHTML = show ? 'HACK<span>/</span>GRADE <span style="color:var(--accent2);font-size:0.6rem">●</span>' : 'HACK<span>/</span>GRADE';
-}
-
-// ─── PAGES ────────────────────────────────────────────────────────
-// ─── ADMIN AUTH ──────────────────────────────────────────────────
-let adminUnlocked = false;
-
-window.requireAdminAuth = function() {
-  if (adminUnlocked) {
-    switchPage('admin');
-    document.getElementById('admin-tab').classList.add('active');
-    document.querySelectorAll('.nav-tab').forEach(el => { if (el.id !== 'admin-tab') el.classList.remove('active'); });
-    return;
+// ── FIREBASE LISTENERS ────────────────────────────────────────────
+configRef.onSnapshot(snap => {
+  if (snap.exists) {
+    cfg = { projects:[], criteria:[], activeProject:null, configured:false, qaRound:0, roundMeta:{}, ...snap.data() };
   }
-  const modal = document.getElementById('auth-modal');
-  modal.style.display = 'flex';
-  document.getElementById('admin-password-input').value = '';
-  document.getElementById('auth-error').style.display = 'none';
-  setTimeout(() => document.getElementById('admin-password-input').focus(), 100);
+  tempProj = [...cfg.projects];
+  tempCrit = [...cfg.criteria];
+  renderAll();
+});
+
+votesCol.onSnapshot(snap => {
+  votes = {};
+  snap.forEach(d => {
+    const v = d.data();
+    if (!votes[v.project]) votes[v.project] = [];
+    votes[v.project].push(v.scores);
+  });
+  renderLeaderboard();
+  renderAdminControls();
+});
+
+qaCol.onSnapshot(snap => {
+  allQuestions = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+  renderQa();
+  const live = allQuestions.filter(q => (q.round||0) === cfg.qaRound);
+  const badge = document.getElementById("qa-badge");
+  if (live.length > 0) { badge.style.display="inline"; badge.textContent=live.length; }
+  else badge.style.display="none";
+});
+
+// ── ROUTING ───────────────────────────────────────────────────────
+function showPage(name, btn) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-tab").forEach(b => b.classList.remove("active"));
+  const pg = document.getElementById("page-" + name);
+  if (pg) { pg.classList.add("active"); pg.style.removeProperty("display"); }
+  if (btn) btn.classList.add("active");
+  if (name === "leaderboard") renderLeaderboard();
+  if (name === "qa") renderQa();
+  if (name === "admin") renderAdminControls();
 }
 
-window.checkAdminPassword = function() {
-  const val = document.getElementById('admin-password-input').value;
-  if (val === 'Taiko') {
+function adminTabClick(btn) {
+  if (adminUnlocked) { showPage("admin", btn); return; }
+  document.getElementById("pw-modal").classList.add("open");
+  document.getElementById("pw-input").value = "";
+  document.getElementById("pw-error").style.display = "none";
+  setTimeout(() => document.getElementById("pw-input").focus(), 100);
+  // store btn ref for after unlock
+  window._adminBtn = btn;
+}
+
+function checkPw() {
+  if (document.getElementById("pw-input").value === "Taiko") {
     adminUnlocked = true;
-    closeAuthModal();
-    const archiveBtn = document.getElementById('archive-btn');
-    if (archiveBtn) archiveBtn.style.display = 'inline';
-    switchPageDirect('admin');
-    document.getElementById('admin-tab').classList.add('active');
-    document.querySelectorAll('.nav-tab').forEach(el => { if (el.id !== 'admin-tab') el.classList.remove('active'); });
+    closePwModal();
+    document.getElementById("new-round-btn").style.display = "inline";
+    showPage("admin", window._adminBtn);
   } else {
-    document.getElementById('auth-error').style.display = 'block';
-    document.getElementById('admin-password-input').value = '';
-    document.getElementById('admin-password-input').focus();
+    document.getElementById("pw-error").style.display = "block";
+    document.getElementById("pw-input").value = "";
+    document.getElementById("pw-input").focus();
   }
 }
 
-window.closeAuthModal = function() {
-  document.getElementById('auth-modal').style.display = 'none';
+function closePwModal() {
+  document.getElementById("pw-modal").classList.remove("open");
 }
 
-function switchPageDirect(p) {
-  if (p === 'admin' && !adminUnlocked) {
-    requireAdminAuth();
-    return;
-  }
-  document.querySelectorAll('.page').forEach(el => {
-    el.classList.remove('active');
-    el.style.removeProperty('display');
-  });
-  // Re-hide admin if not unlocked
-  if (!adminUnlocked) {
-    document.getElementById('page-admin').style.setProperty('display', 'none', 'important');
-  }
-  document.getElementById('page-' + p).classList.add('active');
-  if (p === 'leaderboard') renderLeaderboard();
-  if (p === 'admin') renderAdminControls();
-}
-
-window.switchPage = function(p) {
-  if (p === 'admin' && !adminUnlocked) {
-    requireAdminAuth();
-    return;
-  }
-  document.querySelectorAll('.page').forEach(el => {
-    el.classList.remove('active');
-    el.style.removeProperty('display');
-  });
-  if (!adminUnlocked) {
-    document.getElementById('page-admin').style.setProperty('display', 'none', 'important');
-  }
-  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
-  document.getElementById('page-' + p).classList.add('active');
-  event.target.classList.add('active');
-  if (p === 'leaderboard') renderLeaderboard();
-  if (p === 'admin') renderAdminControls();
-}
-
-// ─── CONFIG ───────────────────────────────────────────────────────
-function renderConfigTags() {
-  renderTags('project-tags', tempProjects, 'project');
-  renderTags('criteria-tags', tempCriteria, 'criteria');
-}
-
-function renderTags(containerId, arr, type) {
-  const el = document.getElementById(containerId);
-  el.innerHTML = arr.map((item, i) => `
-    <div class="tag">
-      ${item}
-      <span class="tag-remove" onclick="removeItem('${type}',${i})">×</span>
-    </div>
-  `).join('');
-}
-
-window.addItem = function(type) {
-  const inp = document.getElementById(type === 'project' ? 'project-input' : 'criteria-input');
-  const val = inp.value.trim();
-  if (!val) return;
-  if (type === 'project') tempProjects.push(val);
-  else tempCriteria.push(val);
-  inp.value = '';
+// ── RENDER ALL ────────────────────────────────────────────────────
+function renderAll() {
+  renderJudge();
+  renderLeaderboard();
+  renderAdminControls();
   renderConfigTags();
+  renderQa();
 }
 
-window.removeItem = function(type, i) {
-  if (type === 'project') tempProjects.splice(i, 1);
-  else tempCriteria.splice(i, 1);
-  renderConfigTags();
-}
+// ── JUDGE ─────────────────────────────────────────────────────────
+function renderJudge() {
+  const waiting = document.getElementById("judge-waiting");
+  const main = document.getElementById("judge-main");
+  const nameEl = document.getElementById("judge-project-name");
+  const form = document.getElementById("score-form");
+  const success = document.getElementById("success-msg");
 
-window.saveConfig = async function() {
-  if (tempProjects.length === 0 || tempCriteria.length === 0) {
-    alert('Please add at least one project and one category.');
-    return;
+  if (!cfg.configured || !cfg.activeProject) {
+    waiting.style.display = "block"; main.style.display = "none"; return;
   }
-  await setDoc(configRef, {
-    projects: tempProjects,
-    criteria: tempCriteria,
-    activeProject: tempProjects[0],
-    configured: true
-  });
+  waiting.style.display = "none"; main.style.display = "block";
+
+  if (cfg.activeProject !== lastActiveProject) {
+    lastActiveProject = cfg.activeProject;
+    currentScores = {};
+    buildCriteriaForm();
+  }
+
+  nameEl.textContent = cfg.activeProject;
+  const voted = submittedProjects.has(cfg.activeProject);
+  form.style.display = voted ? "none" : "block";
+  success.style.display = voted ? "block" : "none";
+  if (!voted) updateSubmitBtn();
 }
 
-window.reconfigure = async function() {
-  if (!confirm('This will reconfigure the hackathon. Existing votes will remain but active project resets.')) return;
-  await setDoc(configRef, { ...await (await getDoc(configRef)).data(), configured: false });
-  document.getElementById('config-section').style.display = 'block';
-  document.getElementById('admin-controls').style.display = 'none';
-}
-
-// ─── JUDGE ────────────────────────────────────────────────────────
-function renderJudgeForm() {
-  if (!state.configured || !state.activeProject) return;
-
-  document.getElementById('judge-project-name').textContent = state.activeProject;
-
-  const container = document.getElementById('criteria-cards');
-  container.innerHTML = state.criteria.map(c => `
-    <div class="criterion-card">
-      <div class="criterion-name">
-        <span>${c}</span>
-        <span class="score-display" id="score-display-${slugify(c)}">—</span>
+function buildCriteriaForm() {
+  const container = document.getElementById("criteria-cards");
+  container.innerHTML = cfg.criteria.map(c => {
+    const id = slug(c);
+    return `<div class="criterion-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:600">
+        <span>${esc(c)}</span>
+        <span style="font-family:'Space Mono',monospace;font-size:1.1rem;color:var(--accent2)" id="sv-${id}">—</span>
       </div>
-      <div class="stars">
-        ${[1,2,3,4,5,6,7,8,9,10].map(n => `
-          <button class="star-btn" id="star-${slugify(c)}-${n}" onclick="setScore('${c}',${n})">${n}</button>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
-
-  currentScores = {};
+      <div class="stars">${[1,2,3,4,5,6,7,8,9,10].map(n =>
+        `<button class="star-btn" id="sb-${id}-${n}" onclick="setScore('${c}',${n})">${n}</button>`
+      ).join("")}</div>
+    </div>`;
+  }).join("");
   updateSubmitBtn();
 }
 
-function updateJudgeView() {
-  if (!state.configured || !state.activeProject) return;
-
-  const alreadyVoted = judgedProjects.has(state.activeProject);
-  document.getElementById('judge-project-name').textContent = state.activeProject;
-  document.getElementById('score-form').style.display = alreadyVoted ? 'none' : 'block';
-  document.getElementById('success-msg').classList.toggle('show', alreadyVoted);
-  document.getElementById('judge-waiting').style.display = 'none';
-  document.getElementById('judge-form-wrap').style.display = 'block';
-}
-
-window.setScore = function(criterion, value) {
-  currentScores[criterion] = value;
-  document.getElementById('score-display-' + slugify(criterion)).textContent = value + '/10';
-  [1,2,3,4,5,6,7,8,9,10].forEach(n => {
-    const btn = document.getElementById(`star-${slugify(criterion)}-${n}`);
-    if (btn) btn.classList.toggle('selected', n <= value);
-  });
+function setScore(crit, val) {
+  currentScores[crit] = val;
+  document.getElementById("sv-" + slug(crit)).textContent = val + "/10";
+  for (let n = 1; n <= 10; n++) {
+    const b = document.getElementById("sb-" + slug(crit) + "-" + n);
+    if (b) b.className = "star-btn" + (n <= val ? " sel" : "");
+  }
   updateSubmitBtn();
 }
 
 function updateSubmitBtn() {
-  const btn = document.getElementById('submit-btn');
-  const allScored = state.criteria.every(c => currentScores[c] !== undefined);
-  btn.disabled = !allScored;
-  btn.textContent = allScored ? 'Submit Score ✓' : `Score all ${state.criteria.length} categories to submit`;
+  const btn = document.getElementById("submit-btn");
+  const all = cfg.criteria.every(c => currentScores[c] !== undefined);
+  btn.disabled = !all;
+  btn.textContent = all ? "Submit Score ✓" : `Score all ${cfg.criteria.length} categories to submit`;
 }
 
-window.submitVote = async function() {
-  if (!state.activeProject) return;
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Submitting...';
-  await addDoc(votesCol, {
-    project: state.activeProject,
-    scores: { ...currentScores },
-    timestamp: Date.now()
-  });
-  judgedProjects.add(state.activeProject);
-  document.getElementById('score-form').style.display = 'none';
-  document.getElementById('success-msg').classList.add('show');
+async function submitVote() {
+  if (!cfg.activeProject) return;
+  document.getElementById("submit-btn").disabled = true;
+  await votesCol.add({ project: cfg.activeProject, scores: { ...currentScores }, ts: Date.now() });
+  submittedProjects.add(cfg.activeProject);
+  document.getElementById("score-form").style.display = "none";
+  document.getElementById("success-msg").style.display = "block";
 }
 
-// ─── LEADERBOARD ──────────────────────────────────────────────────
+// ── LEADERBOARD ───────────────────────────────────────────────────
 function renderLeaderboard() {
-  const el = document.getElementById('leaderboard-list');
-  if (!state.configured || state.projects.length === 0) {
-    el.innerHTML = '<div class="waiting-state"><div class="big">🏆</div><h3>Hackathon not started yet</h3><p style="font-size:0.85rem;margin-top:0.25rem">Configure and start from the Admin panel.</p></div>';
+  const el = document.getElementById("lb-list");
+  if (!cfg.configured || !cfg.projects.length) {
+    el.innerHTML = `<div class="waiting"><div class="icon">🏆</div><h3>Not started yet</h3><p style="font-size:.85rem">Configure from the Admin panel.</p></div>`;
     return;
   }
-
-  const scores = state.projects.map(p => {
-    const pvotes = state.votes[p] || [];
-    const avg = pvotes.length === 0 ? null : (() => {
-      const total = pvotes.reduce((sum, v) => sum + Object.values(v).reduce((a,b) => a+b, 0) / Object.values(v).length, 0);
-      return (total / pvotes.length).toFixed(2);
-    })();
-    return { name: p, avg, votes: pvotes.length };
-  }).sort((a, b) => {
-    if (a.avg === null && b.avg === null) return 0;
-    if (a.avg === null) return 1;
-    if (b.avg === null) return -1;
+  const scored = cfg.projects.map(p => {
+    const pv = votes[p] || [];
+    const avg = pv.length === 0 ? null : (pv.reduce((s,v) =>
+      s + Object.values(v).reduce((a,b)=>a+b,0)/Object.values(v).length, 0) / pv.length).toFixed(2);
+    return { name:p, avg, votes:pv.length };
+  }).sort((a,b) => {
+    if (a.avg===null && b.avg===null) return 0;
+    if (a.avg===null) return 1; if (b.avg===null) return -1;
     return b.avg - a.avg;
   });
 
-  const existingRows = {};
-  el.querySelectorAll('.lb-row[data-project]').forEach(row => {
-    existingRows[row.dataset.project] = row;
-  });
+  const existing = {};
+  el.querySelectorAll("[data-p]").forEach(r => existing[r.dataset.p] = r);
 
-  scores.forEach((s, i) => {
-    const rankIcon = s.avg !== null ? (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1) : '—';
-    const barWidth = s.avg !== null ? (s.avg / 10 * 100) : 0;
-    const scoreText = s.avg !== null ? s.avg : '—';
-    const votesText = `${s.votes} vote${s.votes !== 1 ? 's' : ''}`;
-    const borderColor = i === 0 ? 'var(--gold)' : i === 1 ? 'rgba(180,180,200,0.3)' : i === 2 ? 'rgba(180,100,50,0.3)' : '';
-    const bg = i === 0 ? 'linear-gradient(135deg, rgba(255,214,10,0.07) 0%, var(--surface) 100%)' : '';
-
-    if (existingRows[s.name]) {
-      const row = existingRows[s.name];
-      row.querySelector('.lb-rank').textContent = rankIcon;
-      row.querySelector('.lb-bar').style.width = barWidth + '%';
-      row.querySelector('.lb-votes').textContent = votesText;
-      row.querySelector('.lb-score').textContent = scoreText;
-      row.style.borderColor = borderColor;
-      row.style.background = bg;
-      el.appendChild(row);
+  scored.forEach((s,i) => {
+    const rank = s.avg!==null ? (i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1) : "—";
+    const bar = s.avg!==null ? (s.avg/10*100) : 0;
+    const bc = i===0?"var(--gold)":i===1?"rgba(180,180,200,.3)":i===2?"rgba(180,100,50,.3)":"";
+    const bg = i===0?"linear-gradient(135deg,rgba(255,214,10,.07) 0%,var(--surface) 100%)":"";
+    if (existing[s.name]) {
+      const r = existing[s.name];
+      r.querySelector(".lb-rank").textContent = rank;
+      r.querySelector(".lb-bar").style.width = bar + "%";
+      r.querySelector(".lb-votes").textContent = s.votes + " vote" + (s.votes!==1?"s":"");
+      r.querySelector(".lb-score").textContent = s.avg!==null?s.avg:"—";
+      r.style.borderColor = bc; r.style.background = bg;
+      el.appendChild(r);
     } else {
-      const row = document.createElement('div');
-      row.className = 'lb-row lb-new';
-      row.dataset.project = s.name;
-      row.style.borderColor = borderColor;
-      row.style.background = bg;
-      row.innerHTML = `
-        <div class="lb-rank">${rankIcon}</div>
-        <div class="lb-name">${s.name}</div>
-        <div class="lb-bar-wrap"><div class="lb-bar" style="width:${barWidth}%"></div></div>
-        <div class="lb-votes">${votesText}</div>
-        <div class="lb-score">${scoreText}</div>
-      `;
-      el.appendChild(row);
-      row.addEventListener('animationend', () => row.classList.remove('lb-new'), { once: true });
+      const r = document.createElement("div");
+      r.className = "lb-row new"; r.dataset.p = s.name;
+      r.style.borderColor = bc; r.style.background = bg;
+      r.innerHTML = `<div class="lb-rank">${rank}</div>
+        <div class="lb-name">${esc(s.name)}</div>
+        <div class="lb-bar-wrap"><div class="lb-bar" style="width:${bar}%"></div></div>
+        <div class="lb-votes">${s.votes} vote${s.votes!==1?"s":""}</div>
+        <div class="lb-score">${s.avg!==null?s.avg:"—"}</div>`;
+      el.appendChild(r);
+      r.addEventListener("animationend", () => r.classList.remove("new"), { once:true });
     }
   });
+  Object.keys(existing).forEach(n => { if (!scored.find(s=>s.name===n)) existing[n].remove(); });
 }
 
-// ─── ADMIN ────────────────────────────────────────────────────────
+// ── ADMIN ─────────────────────────────────────────────────────────
 function renderAdminControls() {
-  if (!state.configured) return;
-  const list = document.getElementById('admin-project-list');
-  list.innerHTML = state.projects.map(p => `
-    <button class="project-btn ${state.activeProject === p ? 'active-proj' : ''}" onclick="setActiveProject('${p}')">
-      ${p}
-      <span class="vote-count">${(state.votes[p] || []).length} votes</span>
-    </button>
-  `).join('');
-  renderAdminStats();
+  if (!cfg.configured) return;
+  document.getElementById("setup-section").style.display = "none";
+  document.getElementById("admin-controls").style.display = "block";
+
+  const list = document.getElementById("admin-proj-list");
+  list.innerHTML = cfg.projects.map(p => `
+    <button class="project-btn ${cfg.activeProject===p?"active-proj":""}" onclick="setActive('${esc(p)}')">
+      ${esc(p)} <span class="vote-count">${(votes[p]||[]).length} votes</span>
+    </button>`).join("");
+
+  const total = Object.values(votes).reduce((s,v)=>s+v.length,0);
+  const graded = Object.values(votes).filter(v=>v.length>0).length;
+  document.getElementById("admin-stats").innerHTML = `
+    <div class="stat-row"><span>Active</span><span class="stat-val">${cfg.activeProject||"—"}</span></div>
+    <div class="stat-row"><span>Total Votes</span><span class="stat-val">${total}</span></div>
+    <div class="stat-row"><span>Graded</span><span class="stat-val">${graded}/${cfg.projects.length}</span></div>
+    <div class="stat-row"><span>Categories</span><span class="stat-val">${cfg.criteria.length}</span></div>`;
 }
 
-function renderAdminStats() {
-  if (!state.configured) return;
-  const el = document.getElementById('admin-stats');
-  const totalVotes = Object.values(state.votes).reduce((s, v) => s + v.length, 0);
-  const gradedProjects = Object.values(state.votes).filter(v => v.length > 0).length;
-  el.innerHTML = `
-    <div class="stat-row"><span>Active Project</span><span class="stat-val">${state.activeProject || '—'}</span></div>
-    <div class="stat-row"><span>Total Votes Cast</span><span class="stat-val">${totalVotes}</span></div>
-    <div class="stat-row"><span>Projects Graded</span><span class="stat-val">${gradedProjects} / ${state.projects.length}</span></div>
-    <div class="stat-row"><span>Scoring Categories</span><span class="stat-val">${state.criteria.length}</span></div>
-  `;
+function renderConfigTags() {
+  renderTags("proj-tags", tempProj, "proj");
+  renderTags("crit-tags", tempCrit, "crit");
 }
 
-window.setActiveProject = async function(name) {
-  const data = (await getDoc(configRef)).data();
-  await setDoc(configRef, { ...data, activeProject: name });
+function renderTags(id, arr, type) {
+  document.getElementById(id).innerHTML = arr.map((v,i) =>
+    `<div class="tag">${esc(v)}<span class="tag-x" onclick="removeTag('${type}',${i})">×</span></div>`
+  ).join("");
 }
 
-window.resetAllVotes = async function() {
-  if (!confirm('Reset ALL votes? This cannot be undone.')) return;
+function addTag(type) {
+  const inp = document.getElementById(type==="proj"?"proj-input":"crit-input");
+  const v = inp.value.trim(); if (!v) return;
+  if (type==="proj") tempProj.push(v); else tempCrit.push(v);
+  inp.value = ""; renderConfigTags();
+}
+
+function removeTag(type, i) {
+  if (type==="proj") tempProj.splice(i,1); else tempCrit.splice(i,1);
+  renderConfigTags();
+}
+
+async function saveConfig() {
+  if (!tempProj.length || !tempCrit.length) { alert("Add at least one project and one category."); return; }
+  await configRef.set({ projects:tempProj, criteria:tempCrit, activeProject:tempProj[0], configured:true, qaRound:0, roundMeta:{} });
+}
+
+async function setActive(name) {
+  const snap = await configRef.get();
+  await configRef.set({ ...snap.data(), activeProject:name });
+}
+
+async function resetVotes() {
+  if (!confirm("Reset ALL votes? Cannot be undone.")) return;
   const snap = await votesCol.get();
   await Promise.all(snap.docs.map(d => d.ref.delete()));
-  judgedProjects = new Set();
-  currentScores = {};
-  renderJudgeForm();
+  submittedProjects = new Set(); currentScores = {}; buildCriteriaForm();
 }
 
-
-// ─── Q&A ──────────────────────────────────────────────────────────
-window.submitQuestion = async function() {
-  const input = document.getElementById('qa-input');
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = '';
-  const snap = await getDoc(configRef);
-  const round = snap.exists ? (snap.data().qaRound || 0) : 0;
-  await addDoc(qaCol, { text, upvotes: 0, timestamp: Date.now(), round });
+async function reconfig() {
+  const snap = await configRef.get();
+  await configRef.set({ ...snap.data(), configured:false });
+  document.getElementById("setup-section").style.display = "block";
+  document.getElementById("admin-controls").style.display = "none";
 }
 
-window.upvoteQuestion = async function(id) {
-  if (upvotedQuestions.has(id)) return;
-  upvotedQuestions.add(id);
-  const btn = document.getElementById('upvote-' + id);
-  if (btn) { btn.style.color = 'var(--accent2)'; btn.style.borderColor = 'var(--accent2)'; }
-  await db.collection('questions').doc(id).update({ upvotes: firebase.firestore.FieldValue.increment(1) });
+// ── Q&A ───────────────────────────────────────────────────────────
+async function submitQ() {
+  const inp = document.getElementById("qa-input");
+  const text = inp.value.trim(); if (!text) return;
+  inp.value = "";
+  await qaCol.add({ text, upvotes:0, round:cfg.qaRound, ts:Date.now() });
 }
 
-window.setQaSort = function(sort) {
-  qaSort = sort;
-  ['top','new'].forEach(s => {
-    const btn = document.getElementById('sort-' + s);
-    btn.style.background = sort === s ? 'var(--accent)' : 'transparent';
-    btn.style.color = sort === s ? 'white' : 'var(--text-muted)';
-    btn.style.borderColor = sort === s ? 'var(--accent)' : 'var(--border)';
-  });
-  const el = document.getElementById('qa-list');
-  if (el && el._lastData) renderQaList(el._lastData);
+async function upvote(id) {
+  if (upvoted.has(id)) return;
+  upvoted.add(id);
+  await db.collection("questions").doc(id).update({ upvotes: firebase.firestore.FieldValue.increment(1) });
 }
 
-window.archiveQuestions = async function() {
-  if (!adminUnlocked) { requireAdminAuth(); return; }
-  if (!confirm('Archive current questions and start a fresh round for the next project?')) return;
-  const snap = await getDoc(configRef);
-  const data = snap.exists ? snap.data() : {};
-  const currentRound = data.qaRound || 0;
-  const newRound = currentRound + 1;
-  // Save metadata: which project was active for the round being archived
+function setSort(s) {
+  qaSort = s;
+  document.getElementById("pill-top").className = "pill" + (s==="top"?" active":"");
+  document.getElementById("pill-new").className = "pill" + (s==="new"?" active":"");
+  renderQa();
+}
+
+function onRoundChange() {
+  const sel = document.getElementById("round-sel");
+  viewRound = sel.value === "live" ? "live" : parseInt(sel.value);
+  document.getElementById("qa-ask-row").style.display = viewRound==="live" ? "flex" : "none";
+  renderQa();
+}
+
+async function newRound() {
+  if (!adminUnlocked) return;
+  if (!confirm("Archive current questions and start a fresh Q&A round?")) return;
+  const snap = await configRef.get();
+  const data = snap.data() || {};
+  const curRound = data.qaRound || 0;
   const meta = data.roundMeta || {};
-  meta[currentRound] = { project: state.activeProject || 'Round ' + (currentRound + 1), label: 'Round ' + (currentRound + 1) };
-  await setDoc(configRef, { ...data, qaRound: newRound, roundMeta: meta });
+  meta[curRound] = { project: cfg.activeProject || ("Round " + (curRound+1)) };
+  await configRef.set({ ...data, qaRound: curRound+1, roundMeta: meta });
+  upvoted = new Set();
+  viewRound = "live";
+  document.getElementById("round-sel").value = "live";
+  document.getElementById("qa-ask-row").style.display = "flex";
 }
 
-window.onRoundSelect = function() {
-  const sel = document.getElementById('qa-round-select');
-  viewingRound = sel.value === 'live' ? 'live' : parseInt(sel.value);
-  const askBox = document.getElementById('qa-ask-box');
-  if (askBox) askBox.style.display = viewingRound === 'live' ? 'flex' : 'none';
-  updateQaProjectTag();
-  renderQaForView();
-}
+function renderQa() {
+  const round = viewRound==="live" ? cfg.qaRound : viewRound;
+  const filtered = allQuestions.filter(q => (q.round||0) === round);
+  const sorted = [...filtered].sort((a,b) =>
+    qaSort==="top" ? (b.upvotes||0)-(a.upvotes||0) : (b.ts||0)-(a.ts||0));
 
-function updateRoundDropdown() {
-  const sel = document.getElementById('qa-round-select');
-  if (!sel) return;
-  const currentVal = sel.value;
-  // Build options: live + all archived rounds
-  let opts = '<option value="live">● Live</option>';
-  const rounds = Object.keys(roundMeta).map(Number).sort((a,b) => b - a);
-  rounds.forEach(r => {
-    const m = roundMeta[r];
-    opts += '<option value="' + r + '">' + escapeHtml(m.project || ('Round ' + (r+1))) + '</option>';
-  });
-  sel.innerHTML = opts;
-  // Restore selection if still valid
-  const vals = ['live', ...rounds.map(String)];
-  sel.value = vals.includes(currentVal) ? currentVal : 'live';
-}
+  const el = document.getElementById("qa-list");
 
-function updateQaProjectTag() {
-  const tag = document.getElementById('qa-project-tag');
-  if (!tag) return;
-  if (viewingRound === 'live') {
-    // Show current active project
-    if (state.activeProject) {
-      tag.style.display = 'block';
-      tag.innerHTML = '<span style="font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--accent2);letter-spacing:0.1em;text-transform:uppercase">Now presenting</span><div style="font-size:1.1rem;font-weight:800;margin-top:0.15rem">' + escapeHtml(state.activeProject) + '</div>';
-    } else {
-      tag.style.display = 'none';
-    }
+  // Update round selector
+  const sel = document.getElementById("round-sel");
+  const meta = cfg.roundMeta || {};
+  const rounds = Object.keys(meta).map(Number).sort((a,b)=>b-a);
+  if (rounds.length > 0) {
+    sel.style.display = "inline";
+    const curVal = sel.value;
+    sel.innerHTML = `<option value="live">● Live</option>` +
+      rounds.map(r => `<option value="${r}">${esc(meta[r].project||"Round "+(r+1))}</option>`).join("");
+    sel.value = ["live",...rounds.map(String)].includes(curVal) ? curVal : "live";
   } else {
-    const m = roundMeta[viewingRound];
-    if (m) {
-      tag.style.display = 'block';
-      tag.innerHTML = '<span style="font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase">Archived — </span><span style="font-size:0.7rem;font-family:'Space Mono',monospace;color:var(--text-muted)">' + escapeHtml(m.project || '') + '</span>';
-    } else {
-      tag.style.display = 'none';
-    }
+    sel.style.display = "none";
   }
-}
 
-function renderQaForView() {
-  const round = viewingRound === 'live' ? currentQaRound : viewingRound;
-  const filtered = allQuestions.filter(q => (q.round || 0) === round);
-  renderQaList(filtered);
-}
+  // Round label
+  const label = document.getElementById("qa-round-label");
+  if (viewRound !== "live" && meta[viewRound]) {
+    label.style.display = "block";
+    label.innerHTML = `Archived round — <b>${esc(meta[viewRound].project||"")}</b>`;
+  } else if (viewRound==="live" && cfg.activeProject) {
+    label.style.display = "block";
+    label.innerHTML = `Now presenting: <b>${esc(cfg.activeProject)}</b>`;
+  } else {
+    label.style.display = "none";
+  }
 
-function escapeHtml(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function renderQaList(questions) {
-  const el = document.getElementById('qa-list');
-  if (!el) return;
-  el._lastData = questions;
-
-  const badge = document.getElementById('qa-count-badge');
-  if (badge) { badge.style.display = questions.length > 0 ? 'inline' : 'none'; badge.textContent = questions.length; }
-
-  if (questions.length === 0) {
-    el.innerHTML = '<div class="waiting-state"><div class="big">💬</div><h3>No questions yet</h3><p style="font-size:0.85rem;margin-top:0.25rem">Be the first to ask something!</p></div>';
+  if (sorted.length===0) {
+    el.innerHTML = `<div class="waiting"><div class="icon">💬</div><h3>No questions yet</h3><p style="font-size:.85rem">Be the first to ask!</p></div>`;
     return;
   }
 
-  const sorted = [...questions].sort((a,b) => qaSort === 'top' ? (b.upvotes||0)-(a.upvotes||0) : (b.timestamp||0)-(a.timestamp||0));
   const existing = {};
-  el.querySelectorAll('[data-qid]').forEach(r => existing[r.dataset.qid] = r);
+  el.querySelectorAll("[data-qid]").forEach(r => existing[r.dataset.qid] = r);
 
   sorted.forEach(q => {
-    const voted = upvotedQuestions.has(q.id);
-    const color = voted ? 'var(--accent2)' : 'var(--text-muted)';
-    const border = voted ? 'var(--accent2)' : 'var(--border)';
+    const voted = upvoted.has(q.id);
     if (existing[q.id]) {
-      const row = existing[q.id];
-      row.querySelector('.qa-count').textContent = q.upvotes || 0;
-      row.querySelector('.qa-btn').style.color = color;
-      row.querySelector('.qa-btn').style.borderColor = border;
-      el.appendChild(row);
+      const r = existing[q.id];
+      r.querySelector(".qa-count").textContent = q.upvotes||0;
+      r.querySelector(".qa-upvote").className = "qa-upvote" + (voted?" voted":"");
+      el.appendChild(r);
     } else {
-      const row = document.createElement('div');
-      row.dataset.qid = q.id;
-      row.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;animation:slideIn 0.3s ease';
-      row.innerHTML = '<div style="flex:1;font-size:0.95rem;line-height:1.5">' + escapeHtml(q.text) + '</div>' +
-        '<button id="upvote-' + q.id + '" class="qa-btn" onclick="upvoteQuestion(\'' + q.id + '\')" ' +
-        'style="display:flex;flex-direction:column;align-items:center;gap:0.15rem;padding:0.4rem 0.6rem;border-radius:0.5rem;border:1px solid ' + border + ';background:transparent;cursor:pointer;color:' + color + ';transition:all 0.2s;flex-shrink:0">' +
-        '<span style="font-size:0.9rem">▲</span>' +
-        '<span class="qa-count" style="font-family:\'Space Mono\',monospace;font-size:0.75rem;font-weight:700">' + (q.upvotes||0) + '</span></button>';
-      el.appendChild(row);
-      row.addEventListener('animationend', () => row.style.animation = '', { once: true });
+      const r = document.createElement("div");
+      r.className = "qa-item"; r.dataset.qid = q.id;
+      r.innerHTML = `<div class="qa-text">${esc(q.text)}</div>
+        <button class="qa-upvote${voted?" voted":""}" onclick="upvote('${q.id}')">
+          <span>▲</span><span class="qa-count">${q.upvotes||0}</span>
+        </button>`;
+      el.appendChild(r);
     }
   });
-  Object.keys(existing).forEach(id => { if (!sorted.find(q => q.id === id)) existing[id].remove(); });
+  Object.keys(existing).forEach(id => { if (!sorted.find(q=>q.id===id)) existing[id].remove(); });
 }
 
-// ─── UTILS ────────────────────────────────────────────────────────
-function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]/g, '-'); }
-
-init();
+// ── UTILS ─────────────────────────────────────────────────────────
+function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]/g,"-"); }
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 </script>
 </body>
 </html>
