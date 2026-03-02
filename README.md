@@ -2,6 +2,12 @@
 
 A real-time web application for judging and scoring hackathon projects. Judges can score projects on multiple criteria, and results appear instantly on a live leaderboard.
 
+## Live demo
+
+**https://pigitaiko.github.io/Taiko-Hackathon/**
+
+*(Requires [GitHub Pages](https://docs.github.com/en/pages) to be enabled for this repository in **Settings → Pages**; source is typically the default branch or a selected branch.)*
+
 ## Features
 
 ### 🎯 Judge Panel
