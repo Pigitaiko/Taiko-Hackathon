@@ -501,6 +501,7 @@
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="switchPage('judge')">Judge</button>
       <button class="nav-tab" onclick="switchPage('leaderboard')">Leaderboard</button>
+      <button class="nav-tab" onclick="switchPage('qa')">Q&amp;A <span id="qa-count-badge" style="display:none;background:var(--accent3);color:white;border-radius:1rem;font-size:0.6rem;padding:0.1rem 0.4rem;font-family:'Space Mono',monospace;margin-left:0.2rem"></span></button>
       <button class="nav-tab" id="admin-tab" onclick="requireAdminAuth()">Admin <span class="badge badge-admin">●</span></button>
     </div>
   </nav>
@@ -557,6 +558,24 @@
     <div class="leaderboard" id="leaderboard-list"></div>
   </div>
 
+
+  <!-- Q&A PAGE -->
+  <div id="page-qa" class="page">
+    <div class="section-title">// Live Q&amp;A</div>
+
+    <div style="display:flex;gap:0.75rem;margin-bottom:1.5rem">
+      <input id="qa-input" class="text-input" style="flex:1" placeholder="Ask an anonymous question..." maxlength="280" onkeydown="if(event.key==='Enter')submitQuestion()">
+      <button onclick="submitQuestion()" style="padding:0.6rem 1.25rem;background:var(--accent);color:white;border:none;border-radius:0.5rem;font-family:'Syne',sans-serif;font-weight:800;cursor:pointer;white-space:nowrap;font-size:0.9rem">Ask →</button>
+    </div>
+
+    <div id="qa-sort-bar" style="display:flex;gap:0.5rem;margin-bottom:1rem">
+      <button id="sort-top" onclick="setQaSort('top')" style="padding:0.3rem 0.75rem;border-radius:2rem;border:1px solid var(--accent);background:var(--accent);color:white;font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">Top</button>
+      <button id="sort-new" onclick="setQaSort('new')" style="padding:0.3rem 0.75rem;border-radius:2rem;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:700;cursor:pointer">New</button>
+    </div>
+
+    <div id="qa-list" style="display:grid;gap:0.75rem"></div>
+  </div>
+
   <!-- ADMIN PAGE -->
   <div id="page-admin" class="page" style="display:none!important">
     <div class="section-title">// Admin Panel</div>
@@ -607,7 +626,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, getDocs, deleteDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ─── FIREBASE INIT ───────────────────────────────────────────────
 const firebaseConfig = {
@@ -630,6 +649,8 @@ let state = {
   configured: false
 };
 let judgedProjects = new Set(); // local per-browser session
+let qaSort = 'top';
+let upvotedQuestions = new Set(); // local session tracking
 let currentScores = {};
 let tempProjects = [];
 let tempCriteria = [];
@@ -638,6 +659,7 @@ let lastActiveProject = null;
 // ─── FIREBASE REFS ───────────────────────────────────────────────
 const configRef = doc(db, 'hackathon', 'config');
 const votesCol = collection(db, 'votes');
+const qaCol = collection(db, 'questions');
 
 // ─── INIT ─────────────────────────────────────────────────────────
 async function init() {
@@ -677,6 +699,11 @@ async function init() {
       renderConfigTags();
     }
     showLoading(false);
+  });
+
+  // Listen to Q&A in real time
+  onSnapshot(qaCol, (snap) => {
+    renderQaList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   });
 
   // Listen to votes in real time
@@ -994,6 +1021,83 @@ window.resetAllVotes = async function() {
   judgedProjects = new Set();
   currentScores = {};
   renderJudgeForm();
+}
+
+
+// ─── Q&A ──────────────────────────────────────────────────────────
+window.submitQuestion = async function() {
+  const input = document.getElementById('qa-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  await addDoc(qaCol, { text, upvotes: 0, timestamp: Date.now() });
+}
+
+window.upvoteQuestion = async function(id) {
+  if (upvotedQuestions.has(id)) return;
+  upvotedQuestions.add(id);
+  const btn = document.getElementById('upvote-' + id);
+  if (btn) { btn.style.color = 'var(--accent2)'; btn.style.borderColor = 'var(--accent2)'; }
+  await updateDoc(doc(db, 'questions', id), { upvotes: increment(1) });
+}
+
+window.setQaSort = function(sort) {
+  qaSort = sort;
+  ['top','new'].forEach(s => {
+    const btn = document.getElementById('sort-' + s);
+    btn.style.background = sort === s ? 'var(--accent)' : 'transparent';
+    btn.style.color = sort === s ? 'white' : 'var(--text-muted)';
+    btn.style.borderColor = sort === s ? 'var(--accent)' : 'var(--border)';
+  });
+  const el = document.getElementById('qa-list');
+  if (el && el._lastData) renderQaList(el._lastData);
+}
+
+function escapeHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderQaList(questions) {
+  const el = document.getElementById('qa-list');
+  if (!el) return;
+  el._lastData = questions;
+
+  const badge = document.getElementById('qa-count-badge');
+  if (badge) { badge.style.display = questions.length > 0 ? 'inline' : 'none'; badge.textContent = questions.length; }
+
+  if (questions.length === 0) {
+    el.innerHTML = '<div class="waiting-state"><div class="big">💬</div><h3>No questions yet</h3><p style="font-size:0.85rem;margin-top:0.25rem">Be the first to ask something!</p></div>';
+    return;
+  }
+
+  const sorted = [...questions].sort((a,b) => qaSort === 'top' ? (b.upvotes||0)-(a.upvotes||0) : (b.timestamp||0)-(a.timestamp||0));
+  const existing = {};
+  el.querySelectorAll('[data-qid]').forEach(r => existing[r.dataset.qid] = r);
+
+  sorted.forEach(q => {
+    const voted = upvotedQuestions.has(q.id);
+    const color = voted ? 'var(--accent2)' : 'var(--text-muted)';
+    const border = voted ? 'var(--accent2)' : 'var(--border)';
+    if (existing[q.id]) {
+      const row = existing[q.id];
+      row.querySelector('.qa-count').textContent = q.upvotes || 0;
+      row.querySelector('.qa-btn').style.color = color;
+      row.querySelector('.qa-btn').style.borderColor = border;
+      el.appendChild(row);
+    } else {
+      const row = document.createElement('div');
+      row.dataset.qid = q.id;
+      row.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:0.75rem;padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;animation:slideIn 0.3s ease';
+      row.innerHTML = '<div style="flex:1;font-size:0.95rem;line-height:1.5">' + escapeHtml(q.text) + '</div>' +
+        '<button id="upvote-' + q.id + '" class="qa-btn" onclick="upvoteQuestion(\'' + q.id + '\')" ' +
+        'style="display:flex;flex-direction:column;align-items:center;gap:0.15rem;padding:0.4rem 0.6rem;border-radius:0.5rem;border:1px solid ' + border + ';background:transparent;cursor:pointer;color:' + color + ';transition:all 0.2s;flex-shrink:0">' +
+        '<span style="font-size:0.9rem">▲</span>' +
+        '<span class="qa-count" style="font-family:\'Space Mono\',monospace;font-size:0.75rem;font-weight:700">' + (q.upvotes||0) + '</span></button>';
+      el.appendChild(row);
+      row.addEventListener('animationend', () => row.style.animation = '', { once: true });
+    }
+  });
+  Object.keys(existing).forEach(id => { if (!sorted.find(q => q.id === id)) existing[id].remove(); });
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────
