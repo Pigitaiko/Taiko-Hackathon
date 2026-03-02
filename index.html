@@ -640,7 +640,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
-const { initializeApp } = firebase;
 // compat SDK exposes firebase.firestore() directly
 function getFirestore(app) { return app.firestore(); }
 function doc(db, ...args) { 
@@ -672,7 +671,7 @@ const firebaseConfig = {
   messagingSenderId: "328607716900",
   appId: "1:328607716900:web:8d647ae512165b37846ab1"
 };
-const app = initializeApp(firebaseConfig);
+const app = firebase.initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ─── STATE ───────────────────────────────────────────────────────
@@ -702,7 +701,7 @@ async function init() {
 
   // Listen to config changes in real time
   onSnapshot(configRef, (snap) => {
-    if (snap.exists()) {
+    if (snap.exists) {
       const data = snap.data();
       state.projects = data.projects || [];
       state.criteria = data.criteria || [];
@@ -743,7 +742,7 @@ async function init() {
   let viewingRound = 'live'; // 'live' or a round number
 
   onSnapshot(configRef, (snap) => {
-    if (snap.exists()) {
+    if (snap.exists) {
       const data = snap.data();
       const newRound = data.qaRound || 0;
       if (newRound !== currentQaRound) {
@@ -1089,7 +1088,7 @@ window.submitQuestion = async function() {
   if (!text) return;
   input.value = '';
   const snap = await getDoc(configRef);
-  const round = snap.exists() ? (snap.data().qaRound || 0) : 0;
+  const round = snap.exists ? (snap.data().qaRound || 0) : 0;
   await addDoc(qaCol, { text, upvotes: 0, timestamp: Date.now(), round });
 }
 
@@ -1117,7 +1116,7 @@ window.archiveQuestions = async function() {
   if (!adminUnlocked) { requireAdminAuth(); return; }
   if (!confirm('Archive current questions and start a fresh round for the next project?')) return;
   const snap = await getDoc(configRef);
-  const data = snap.exists() ? snap.data() : {};
+  const data = snap.exists ? snap.data() : {};
   const currentRound = data.qaRound || 0;
   const newRound = currentRound + 1;
   // Save metadata: which project was active for the round being archived
