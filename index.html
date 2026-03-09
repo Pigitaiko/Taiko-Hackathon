@@ -63,6 +63,16 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:1.2rem
   cursor:pointer;transition:all .2s}
 .submit-btn:hover{background:#6d28d9;transform:translateY(-1px)}
 .submit-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.feedback-box{width:100%;min-height:100px;padding:.9rem 1rem;background:var(--surface2);border:1px solid var(--border);
+  border-radius:.75rem;color:var(--text);font-family:"Syne",sans-serif;font-size:.9rem;
+  outline:none;resize:vertical;transition:border-color .2s;margin-bottom:1.5rem}
+.feedback-box:focus{border-color:var(--accent)}
+.feedback-box::placeholder{color:var(--muted)}
+.feedback-card{background:var(--surface);border:1px solid var(--border);border-radius:.75rem;
+  padding:1rem 1.25rem;margin-bottom:.5rem}
+.feedback-card .fb-author{font-family:"Space Mono",monospace;font-size:.7rem;color:var(--muted);
+  letter-spacing:.05em;margin-bottom:.4rem}
+.feedback-card .fb-text{font-size:.9rem;line-height:1.5;color:var(--text);white-space:pre-wrap}
 .success-msg{text-align:center;padding:2rem;background:var(--surface);
   border:1px solid var(--accent2);border-radius:.75rem;display:none}
 .success-msg.show{display:block}
@@ -186,6 +196,8 @@ select.round-sel{padding:.4rem .75rem;background:var(--surface2);border:1px soli
       </div>
       <div id="score-form">
         <div class="score-grid" id="criteria-cards"></div>
+        <div style="font-weight:600;margin-bottom:.5rem">Feedback <span style="color:var(--muted);font-weight:400;font-size:.85rem">(optional)</span></div>
+        <textarea class="feedback-box" id="feedback-input" placeholder="Share qualitative feedback — strengths, suggestions, things that stood out..." maxlength="2000"></textarea>
         <button class="submit-btn" id="submit-btn" onclick="submitVote()" disabled>Score all categories to submit</button>
       </div>
       <div class="success-msg" id="success-msg">
@@ -257,6 +269,15 @@ select.round-sel{padding:.4rem .75rem;background:var(--surface2);border:1px soli
           <div id="admin-stats"></div>
         </div>
       </div>
+      <div class="admin-card" style="margin-top:1.5rem">
+        <h3>💬 Feedback</h3>
+        <div style="margin-bottom:.75rem">
+          <select class="round-sel" id="fb-proj-sel" onchange="renderFeedbackList()">
+            <option value="__all">All Projects</option>
+          </select>
+        </div>
+        <div id="admin-feedback-list"></div>
+      </div>
       <div style="margin-top:1rem">
         <button onclick="reconfig()" style="padding:.5rem 1rem;border:1px solid var(--muted);background:transparent;color:var(--muted);border-radius:.5rem;font-family:'Syne',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer">← Reconfigure</button>
       </div>
@@ -308,7 +329,7 @@ votesCol.onSnapshot(snap => {
   snap.forEach(d => {
     const v = d.data();
     if (!votes[v.project]) votes[v.project] = [];
-    votes[v.project].push(v.scores);
+    votes[v.project].push({ scores: v.scores, feedback: v.feedback || "" });
   });
   renderLeaderboard();
   renderAdminControls();
@@ -388,6 +409,7 @@ function renderJudge() {
     lastActiveProject = cfg.activeProject;
     currentScores = {};
     buildCriteriaForm();
+    document.getElementById("feedback-input").value = "";
   }
 
   nameEl.textContent = cfg.activeProject;
@@ -434,7 +456,10 @@ function updateSubmitBtn() {
 async function submitVote() {
   if (!cfg.activeProject) return;
   document.getElementById("submit-btn").disabled = true;
-  await votesCol.add({ project: cfg.activeProject, scores: { ...currentScores }, ts: Date.now() });
+  const feedback = document.getElementById("feedback-input").value.trim();
+  const entry = { project: cfg.activeProject, scores: { ...currentScores }, ts: Date.now() };
+  if (feedback) entry.feedback = feedback;
+  await votesCol.add(entry);
   submittedProjects.add(cfg.activeProject);
   document.getElementById("score-form").style.display = "none";
   document.getElementById("success-msg").style.display = "block";
@@ -450,7 +475,7 @@ function renderLeaderboard() {
   const scored = cfg.projects.map(p => {
     const pv = votes[p] || [];
     const avg = pv.length === 0 ? null : (pv.reduce((s,v) =>
-      s + Object.values(v).reduce((a,b)=>a+b,0)/Object.values(v).length, 0) / pv.length).toFixed(2);
+      s + Object.values(v.scores).reduce((a,b)=>a+b,0)/Object.values(v.scores).length, 0) / pv.length).toFixed(2);
     return { name:p, avg, votes:pv.length };
   }).sort((a,b) => {
     if (a.avg===null && b.avg===null) return 0;
@@ -509,6 +534,33 @@ function renderAdminControls() {
     <div class="stat-row"><span>Total Votes</span><span class="stat-val">${total}</span></div>
     <div class="stat-row"><span>Graded</span><span class="stat-val">${graded}/${cfg.projects.length}</span></div>
     <div class="stat-row"><span>Categories</span><span class="stat-val">${cfg.criteria.length}</span></div>`;
+
+  // Update feedback project filter
+  const fbSel = document.getElementById("fb-proj-sel");
+  const curFbVal = fbSel.value;
+  fbSel.innerHTML = `<option value="__all">All Projects</option>` +
+    cfg.projects.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
+  if (["__all", ...cfg.projects].includes(curFbVal)) fbSel.value = curFbVal;
+  renderFeedbackList();
+}
+
+function renderFeedbackList() {
+  const sel = document.getElementById("fb-proj-sel").value;
+  const el = document.getElementById("admin-feedback-list");
+  let entries = [];
+  for (const [proj, voteArr] of Object.entries(votes)) {
+    if (sel !== "__all" && proj !== sel) continue;
+    voteArr.forEach(v => {
+      if (v.feedback) entries.push({ project: proj, feedback: v.feedback });
+    });
+  }
+  if (entries.length === 0) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:.85rem;padding:.5rem 0">No feedback submitted yet.</div>`;
+    return;
+  }
+  el.innerHTML = entries.map(e =>
+    `<div class="feedback-card"><div class="fb-author">${esc(e.project)}</div><div class="fb-text">${esc(e.feedback)}</div></div>`
+  ).join("");
 }
 
 function renderConfigTags() {
