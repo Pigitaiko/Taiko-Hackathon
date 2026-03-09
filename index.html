@@ -263,6 +263,7 @@ select.round-sel{padding:.4rem .75rem;background:var(--surface2);border:1px soli
           <h3>🎯 Active Project</h3>
           <div class="project-list" id="admin-proj-list"></div>
           <button class="reset-btn" onclick="resetVotes()">⚠ Reset All Votes</button>
+          <button class="reset-btn" onclick="clearQuestions()">⚠ Clear All Questions</button>
         </div>
         <div class="admin-card">
           <h3>📊 Stats</h3>
@@ -601,6 +602,17 @@ async function resetVotes() {
   const snap = await votesCol.get();
   await Promise.all(snap.docs.map(d => d.ref.delete()));
   submittedProjects = new Set(); currentScores = {}; buildCriteriaForm();
+}
+
+async function clearQuestions() {
+  if (!confirm("Delete ALL questions from every round? Cannot be undone.")) return;
+  const snap = await qaCol.get();
+  await Promise.all(snap.docs.map(d => d.ref.delete()));
+  // Reset round counter and metadata
+  const cfgSnap = await configRef.get();
+  const data = cfgSnap.data() || {};
+  await configRef.set({ ...data, qaRound: 0, roundMeta: {} });
+  upvoted = new Set();
 }
 
 async function reconfig() {
