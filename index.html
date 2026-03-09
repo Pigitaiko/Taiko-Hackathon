@@ -263,7 +263,6 @@ select.round-sel{padding:.4rem .75rem;background:var(--surface2);border:1px soli
           <h3>🎯 Active Project</h3>
           <div class="project-list" id="admin-proj-list"></div>
           <button class="reset-btn" onclick="resetVotes()">⚠ Reset All Votes</button>
-          <button class="reset-btn" onclick="clearQuestions()">⚠ Clear All Questions</button>
         </div>
         <div class="admin-card">
           <h3>📊 Stats</h3>
@@ -282,6 +281,9 @@ select.round-sel{padding:.4rem .75rem;background:var(--surface2);border:1px soli
       <div style="margin-top:1rem">
         <button onclick="reconfig()" style="padding:.5rem 1rem;border:1px solid var(--muted);background:transparent;color:var(--muted);border-radius:.5rem;font-family:'Syne',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer">← Reconfigure</button>
       </div>
+    </div>
+    <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+      <button class="reset-btn" onclick="clearQuestions()" style="margin-top:0">⚠ Clear All Questions</button>
     </div>
   </div>
 
