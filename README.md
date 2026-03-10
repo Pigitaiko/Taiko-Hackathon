@@ -1,5 +1,7 @@
 # Hackathon Grader
 
+https://pigitaiko.github.io/Taiko-Hackathon/
+
 A real-time web application for judging and scoring hackathon projects. Judges can score projects on multiple criteria, and results appear instantly on a live leaderboard.
 
 ## Features
