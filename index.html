@@ -591,7 +591,12 @@ function removeTag(type, i) {
 
 async function saveConfig() {
   if (!tempProj.length || !tempCrit.length) { alert("Add at least one project and one category."); return; }
-  await configRef.set({ projects:tempProj, criteria:tempCrit, activeProject:tempProj[0], configured:true, qaRound:0, roundMeta:{} });
+  try {
+    await configRef.set({ projects:tempProj, criteria:tempCrit, activeProject:tempProj[0], configured:true, qaRound:0, roundMeta:{} });
+  } catch (e) {
+    console.error("saveConfig failed:", e);
+    alert("Save failed: " + e.message + "\n\nThis usually means Firestore security rules have expired. Check Firebase Console → Firestore → Rules.");
+  }
 }
 
 async function setActive(name) {
